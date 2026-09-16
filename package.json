@@ -1,0 +1,28 @@
+{
+  "name": "albumed",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Albumed — Indian photo album builder. Upload raw phone photos, review & finalize, generate a wedding/celebration album PDF.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --port 4173",
+    "typecheck": "tsc -b --force",
+    "icons": "node scripts/make-icons.mjs",
+    "demo": "node scripts/demo-e2e.mjs"
+  },
+  "dependencies": {
+    "jspdf": "^2.5.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "playwright": "^1.63.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}
