@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../store'
-import { AiOffNotice } from './Assistant'
+import { AiOffNotice, DemoBadge } from './Assistant'
 
 const SUGGESTIONS = [
   'Make it look like a traditional Tamil muhurtham album',
@@ -49,6 +49,8 @@ export function AlbumChat() {
           )}
         </div>
       </div>
+
+      <DemoBadge />
 
       {!app.ai.enabled ? (
         <AiOffNotice reason={app.ai.reason} />

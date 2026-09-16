@@ -527,3 +527,15 @@ textarea { min-height: 70px; resize: vertical; }
 .quota .btn { margin-left: auto; }
 
 .locked { opacity: .55; }
+
+.demo-badge {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px dashed var(--maroon);
+  background: color-mix(in srgb, var(--maroon) 7%, transparent);
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+.demo-badge b { color: var(--maroon); font-size: 14px; }

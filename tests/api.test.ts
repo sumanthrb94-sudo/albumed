@@ -163,3 +163,128 @@ test('the client build is served with a SPA fallback', async () => {
   assert.equal(res.status, 200)
   assert.match(res.headers.get('content-type') ?? '', /text\/html/)
 })
+
+/* ---------------- demo mode ---------------- */
+
+test('demo mode is on by default and can be switched off outright', async () => {
+  const { demoMode } = await import('../server/demoAi.js')
+  const prev = process.env.ALBUMED_DEMO_AI
+  delete process.env.ALBUMED_DEMO_AI
+  assert.equal(demoMode(), true, 'a deployment with no key should still demo')
+  process.env.ALBUMED_DEMO_AI = '0'
+  assert.equal(demoMode(), false, 'ALBUMED_DEMO_AI=0 must switch the assistant off')
+  if (prev === undefined) delete process.env.ALBUMED_DEMO_AI
+  else process.env.ALBUMED_DEMO_AI = prev
+})
+
+test('a real key always beats demo mode', async () => {
+  const { health } = await import('../server/handlers.js')
+  // Each test file is its own process, so set the key here rather than assume it.
+  const prevKey = process.env.ANTHROPIC_API_KEY
+  const prevDemo = process.env.ALBUMED_DEMO_AI
+
+  delete process.env.ANTHROPIC_API_KEY
+  delete process.env.ALBUMED_DEMO_AI
+  const withoutKey = health().body as { enabled: boolean; demo: boolean }
+  assert.equal(withoutKey.demo, true, 'no key should fall back to demo mode')
+
+  process.env.ANTHROPIC_API_KEY = 'sk-ant-test'
+  const withKey = health().body as { enabled: boolean; demo: boolean; model: string }
+  assert.equal(withKey.enabled, true)
+  assert.equal(withKey.demo, false, 'a configured key must not be shadowed by demo mode')
+  assert.notEqual(withKey.model, 'demo mode — scripted')
+
+  if (prevKey === undefined) delete process.env.ANTHROPIC_API_KEY
+  else process.env.ANTHROPIC_API_KEY = prevKey
+  if (prevDemo === undefined) delete process.env.ALBUMED_DEMO_AI
+  else process.env.ALBUMED_DEMO_AI = prevDemo
+})
+
+test('scripted curate answers for every photo it was given', async () => {
+  const { demoCurate } = await import('../server/demoAi.js')
+  const photos = ['ph_a', 'ph_b', 'ph_c'].map((id) => ({ id, name: `${id}.jpg`, dataUrl: '' }))
+  const out = demoCurate({ photos, occasion: 'Telugu wedding', language: 'telugu' })
+  assert.equal(out.verdicts.length, 3)
+  assert.deepEqual(out.verdicts.map((v) => v.id), ['ph_a', 'ph_b', 'ph_c'])
+  for (const v of out.verdicts) {
+    assert.ok(v.score >= 0 && v.score <= 100)
+    assert.ok(v.caption_native.length > 0, 'a Telugu album should get Telugu captions')
+    assert.ok(v.focus_x >= 0 && v.focus_x <= 1)
+  }
+})
+
+test('scripted curate keeps English albums free of native captions', async () => {
+  const { demoCurate } = await import('../server/demoAi.js')
+  const out = demoCurate({
+    photos: [{ id: 'ph_a', name: 'a.jpg', dataUrl: '' }],
+    occasion: 'wedding',
+    language: 'english',
+  })
+  assert.equal(out.verdicts[0].caption_native, '')
+})
+
+test('scripted story only uses photo ids it was given', async () => {
+  const { demoStory } = await import('../server/demoAi.js')
+  const photos = ['ph_a', 'ph_b', 'ph_c', 'ph_d'].map((id, i) => ({
+    id,
+    ceremony: (i < 2 ? 'jeelakarra-bellam' : 'reception') as const,
+    score: 80,
+    hero: i === 0,
+    caption: '',
+  }))
+  const story = demoStory({
+    occasion: 'Telugu wedding',
+    language: 'telugu',
+    hosts: 'Sireesha & Karthik',
+    eventDate: '',
+    venue: '',
+    themeIds: [],
+    photos,
+  })
+  const given = new Set(photos.map((p) => p.id))
+  assert.ok(story.chapters.length >= 1)
+  const used = story.chapters.flatMap((c) => c.photo_ids)
+  for (const id of used) assert.ok(given.has(id), `invented id ${id}`)
+  assert.equal(new Set(used).size, used.length, 'a photo appears in two chapters')
+  assert.ok(given.has(story.cover_photo_id))
+})
+
+test('scripted edit never invents a template id', async () => {
+  const { demoEdit } = await import('../server/demoAi.js')
+  const base = {
+    language: 'english' as const,
+    history: [],
+    album: {
+      title: 'T', hosts: 'H', eventDate: '', venue: '', themeId: 'godavari', pageSizeId: 'sq8',
+      density: 'balanced', showCaptions: true, showPageNumbers: true, includeCover: true,
+      includeClosing: true, includeChapterPages: true,
+    },
+    themeIds: [{ id: 'godavari', name: 'G', occasion: 'w', blurb: '' }], // kasavu deliberately absent
+    pageSizeIds: [{ id: 'sq8', label: 'Square 8' }],
+    chapters: [],
+    photos: [{ id: 'ph_a', ceremony: 'reception' as const, status: 'approved', starred: false, caption: '' }],
+  }
+  const out = demoEdit({ ...base, instruction: 'make it a Kerala wedding album' })
+  const themeOp = out.ops.find((o) => o.op === 'set_theme')
+  assert.equal(themeOp && 'theme_id' in themeOp ? themeOp.theme_id : null, 'godavari')
+})
+
+test('scripted edit admits what it cannot do rather than pretending', async () => {
+  const { demoEdit } = await import('../server/demoAi.js')
+  const out = demoEdit({
+    instruction: 'rewrite every caption as a haiku about the Godavari',
+    language: 'english',
+    history: [],
+    album: {
+      title: 'T', hosts: 'H', eventDate: '', venue: '', themeId: 'godavari', pageSizeId: 'sq8',
+      density: 'balanced', showCaptions: true, showPageNumbers: true, includeCover: true,
+      includeClosing: true, includeChapterPages: true,
+    },
+    themeIds: [],
+    pageSizeIds: [],
+    chapters: [],
+    photos: [],
+  })
+  assert.equal(out.ops.length, 0)
+  assert.match(out.reply, /demo mode/i)
+})

@@ -289,5 +289,7 @@ export interface EditRequest {
 export interface AiStatus {
   enabled: boolean
   model: string
+  /** True when replies are scripted rather than from Claude. Always surfaced. */
+  demo?: boolean
   reason?: string
 }

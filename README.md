@@ -37,8 +37,17 @@ npm start                     # http://localhost:8787
 
 For development, `npm run dev` runs Vite and the API server together with hot reload on both.
 
-**Without an API key the app still works end to end** — uploading, reviewing, all sixteen
-templates, layout and PDF export. Only the assistant is switched off, and the UI says so.
+**Without an API key the app still works end to end.** Uploading, reviewing, all 23 templates,
+layout and PDF export run regardless. The assistant falls back to **demo mode**: scripted replies,
+shaped exactly like the real ones and derived from your actual photos, so a presentation works with
+no key, no network and no cost. It is labelled everywhere it appears — a badge in the assistant
+panel and the chat, a chip in the header, and `demo: true` on `/api/health` — because scripted
+output must never be able to pass as live AI. `ALBUMED_DEMO_AI=0` switches the assistant off
+outright instead; a real key always takes precedence.
+
+Demo mode follows a fixed set of requests (a region or mood, a language, featuring a photo, dropping
+weak frames, reordering chapters, density). Ask it something outside that and it says so rather than
+pretending.
 
 ### See the whole thing run
 
@@ -57,7 +66,9 @@ copies, the paid PDF carrying at least 1.5× the data of the free draft, the pag
 preview, and the album surviving a reload. Screenshots, both PDFs and `summary.json` land in
 `demo-output/`.
 
-To run the same demo against the real API: `ALBUMED_REAL_AI=1 ANTHROPIC_API_KEY=sk-ant-... npm run demo`.
+Run the same script against the shipped demo mode with `ALBUMED_DEMO_AI=1 npm run demo` — no mock
+upstream at all, exactly what a deployment with no key serves — or against the real API with
+`ALBUMED_REAL_AI=1 ANTHROPIC_API_KEY=sk-ant-... npm run demo`. All three pass.
 
 ---
 
@@ -205,6 +216,7 @@ server/
   index.ts          standalone Node server (Docker, self-hosting) + static client
   claude.ts         every Claude call — structured outputs, error translation
   prompts.ts        the system prompts
+  demoAi.ts         scripted replies for demos without a key, always labelled
 api/                the same handlers as Vercel serverless functions
 tests/
   applyOps.test.ts  the edit applier, including malformed model output
@@ -284,7 +296,7 @@ want to trade some judgement for cost.
 ## Tests
 
 ```bash
-npm test     # 60 unit + integration tests, no API key needed
+npm test     # 68 unit + integration tests, no API key needed
 npm run demo # the full browser demo, also no API key needed
 ```
 

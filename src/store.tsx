@@ -132,7 +132,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<string | null>(null)
   const [planId, setPlanId] = useState<PlanId>(() => readPlan())
   const [paywall, setPaywall] = useState<Paywall | null>(null)
-  const [ai, setAi] = useState<AiState>({ enabled: false, model: '', batch: 6, busy: null })
+  const [ai, setAi] = useState<AiState>({ enabled: false, model: '', demo: false, batch: 6, busy: null })
   const [chat, setChat] = useState<ChatTurn[]>([])
   const undoStack = useRef<Array<{ project: Project; photos: Photo[] }>>([])
   const [canUndo, setCanUndo] = useState(false)

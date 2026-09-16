@@ -4,6 +4,7 @@
    used for Docker and self-hosting) and `api/*.ts` (Vercel serverless
    functions). Keeping the logic here means both behave identically. */
 import { aiConfigured, AiError, buildStory, curateBatch, CURATE_BATCH, editAlbum, MODEL } from './claude.js'
+import { demoCurate, demoEdit, demoMode, demoStory } from './demoAi.js'
 import type { AiStatus, CurateRequest, EditRequest, StoryRequest } from '../src/lib/aiContract.js'
 
 export interface ApiResponse {
@@ -47,13 +48,18 @@ export interface HealthBody extends AiStatus {
 }
 
 export function health(): ApiResponse {
-  const enabled = aiConfigured()
+  // A real key always wins: demo mode is a fallback, never an override.
+  const live = aiConfigured()
+  const demo = !live && demoMode()
   const body: HealthBody = {
     ok: true,
-    enabled,
-    model: MODEL,
+    enabled: live || demo,
+    demo,
+    model: live ? MODEL : demo ? 'demo mode — scripted' : MODEL,
     batch: CURATE_BATCH,
-    ...(enabled ? {} : { reason: 'Set ANTHROPIC_API_KEY on the server to turn on the album assistant.' }),
+    ...(live || demo
+      ? {}
+      : { reason: 'Set ANTHROPIC_API_KEY on the server to turn on the album assistant.' }),
   }
   return { status: 200, body }
 }
@@ -62,7 +68,40 @@ export function health(): ApiResponse {
 
 export type AiRoute = 'curate' | 'story' | 'edit'
 
+/** Scripted replies, with enough delay that the UI's pending state is visible. */
+async function demoRoute(route: AiRoute, body: unknown): Promise<ApiResponse> {
+  await new Promise((r) => setTimeout(r, 500))
+  log('info', 'demo', { route })
+  switch (route) {
+    case 'curate': {
+      const r = body as CurateRequest
+      if (!Array.isArray(r?.photos) || !r.photos.length) {
+        return { status: 400, body: { error: 'No photos in the request.' } }
+      }
+      return { status: 200, body: demoCurate(r) }
+    }
+    case 'story': {
+      const r = body as StoryRequest
+      if (!Array.isArray(r?.photos) || !r.photos.length) {
+        return { status: 400, body: { error: 'No photos in the request.' } }
+      }
+      return { status: 200, body: demoStory(r) }
+    }
+    case 'edit': {
+      const r = body as EditRequest
+      if (!r?.instruction?.trim()) return { status: 400, body: { error: 'Say what you would like changed.' } }
+      return { status: 200, body: demoEdit(r) }
+    }
+  }
+}
+
 export async function aiRoute(route: AiRoute, body: unknown, clientKey: string): Promise<ApiResponse> {
+  if (!aiConfigured() && demoMode()) {
+    if (rateLimited(`${clientKey}:${route}`)) {
+      return { status: 429, body: { error: 'Too many requests. Give it a minute.' }, headers: { 'retry-after': '60' } }
+    }
+    return demoRoute(route, body)
+  }
   if (!aiConfigured()) {
     return {
       status: 503,

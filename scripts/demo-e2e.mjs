@@ -19,6 +19,9 @@ const EXEC = process.env.ALBUMED_CHROME ?? '/opt/pw-browsers/chromium-1194/chrom
 const PORT = 4318
 const MOCK_PORT = 4611
 const REAL_AI = process.env.ALBUMED_REAL_AI === '1' && Boolean(process.env.ANTHROPIC_API_KEY)
+/* ALBUMED_DEMO_AI=1 runs the shipped demo mode instead of the mock upstream —
+   the same thing a presentation with no API key would use. */
+const DEMO_AI = !REAL_AI && process.env.ALBUMED_DEMO_AI === '1'
 const BASE = `http://localhost:${PORT}`
 
 if (!existsSync(join(ROOT, 'dist', 'index.html')) || !existsSync(join(ROOT, 'dist-server', 'index.mjs'))) {
@@ -34,16 +37,26 @@ const fail = (msg) => {
 await rm(OUT, { recursive: true, force: true })
 await mkdir(OUT, { recursive: true })
 
-const mock = REAL_AI ? null : await startMockAnthropic(MOCK_PORT)
-console.log(REAL_AI ? 'using the real Claude API' : `using the mock Claude API on ${mock.url}`)
+const mock = REAL_AI || DEMO_AI ? null : await startMockAnthropic(MOCK_PORT)
+console.log(
+  REAL_AI
+    ? 'using the real Claude API'
+    : DEMO_AI
+      ? 'using the shipped demo mode (no API key, no upstream)'
+      : `using the mock Claude API on ${mock.url}`,
+)
 
 const server = spawn('node', ['dist-server/index.mjs'], {
   cwd: ROOT,
   env: {
     ...process.env,
     PORT: String(PORT),
-    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? 'test-key',
-    ...(REAL_AI ? {} : { ANTHROPIC_BASE_URL: mock.url }),
+    ...(DEMO_AI
+      ? { ANTHROPIC_API_KEY: '', ALBUMED_DEMO_AI: '1' }
+      : {
+          ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? 'test-key',
+          ...(REAL_AI ? {} : { ANTHROPIC_BASE_URL: mock.url }),
+        }),
   },
   stdio: ['ignore', 'pipe', 'inherit'],
 })
@@ -69,6 +82,7 @@ for (let i = 0; ; i++) {
 }
 const health = await (await fetch(`${BASE}/api/health`)).json()
 console.log(`server up on ${BASE} — assistant: ${health.enabled ? health.model : 'disabled'}`)
+if (DEMO_AI && !health.demo) fail('demo mode did not switch on')
 
 const browser = await chromium.launch({ executablePath: EXEC, args: ['--no-sandbox'] })
 const ctx = await browser.newContext({ viewport: { width: 430, height: 932 }, deviceScaleFactor: 2, acceptDownloads: true })
@@ -86,12 +100,22 @@ const shotPage = async (i, name) => {
   await el.screenshot({ path: join(OUT, `${name}.png`) })
   console.log(`  ✓ screenshot ${name}.png`)
 }
-const chat = async (text, expect) => {
+/* Waits for a reply rather than for particular wording — the live assistant and
+   demo mode phrase things differently, and both are valid. */
+const chat = async (text) => {
+  const replies = page.locator('.bubble.assistant:not(.pending)')
+  const before = await replies.count()
   await page.fill('input[placeholder="What would you like changed?"]', text)
   await page.click('button[type="submit"]:has-text("Send")')
-  await page.waitForSelector(`.bubble.assistant:has-text("${expect}")`, { timeout: 90000 })
+  await page.waitForFunction(
+    (n) => document.querySelectorAll('.bubble.assistant:not(.pending)').length > n,
+    before,
+    { timeout: 90000 },
+  )
   await page.waitForTimeout(1200)
-  console.log(`  ✓ "${text}" → applied`)
+  const reply = await replies.last().innerText()
+  console.log(`  ✓ "${text}"\n      → ${reply.split('\n')[0]}`)
+  return reply
 }
 
 const summary = {}
@@ -167,6 +191,11 @@ try {
   await page.click('button:has-text("Plan the album")')
   await page.waitForSelector('text=Download album PDF', { timeout: 180000 })
   await page.waitForTimeout(3000)
+  if (DEMO_AI) {
+    const badges = await page.locator('.demo-badge').count()
+    if (!badges) fail('demo mode must be labelled in the UI')
+    console.log('  ✓ demo mode is labelled on screen')
+  }
   const pagesAfterPlan = await page.locator('.page-item').count()
   const chapterPages = await page.locator('.page-tools .lbl:has-text("Chapter")').count()
   console.log(`  ✓ album built: ${pagesAfterPlan} pages, ${chapterPages} chapter dividers`)
@@ -177,15 +206,15 @@ try {
 
   step(6, 'Edit the album by asking for changes')
   const themeBefore = await page.locator('.card .hint').first().innerText()
-  await chat('Make it look like a Kerala wedding album', 'Kasavu')
+  await chat('Make it look like a Kerala wedding album')
   const themeAfter = await page.locator('.card .hint').first().innerText()
   console.log(`  ✓ template: ${themeBefore.split('·')[0].trim()} → ${themeAfter.split('·')[0].trim()}`)
   if (themeBefore === themeAfter) fail('asking for a Kerala album did not change the template')
   await shot('07-chat-theme-changed')
   await shotPage(0, '08-page-cover-kasavu')
 
-  await chat('Give the thaali moment a full page of its own', 'page of its own')
-  await chat('Drop anything blurry or with eyes closed', 'out')
+  await chat('Give the thaali moment a full page of its own')
+  await chat('Fewer photos per page, more white space')
   const pagesAfterEdits = await page.locator('.page-item').count()
   console.log(`  ✓ album re-laid out: ${pagesAfterEdits} pages`)
   summary.pagesAfterEdits = pagesAfterEdits

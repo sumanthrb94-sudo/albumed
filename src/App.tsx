@@ -112,6 +112,7 @@ function Shell() {
         >
           {app.plan.limits.printGrade ? `★ ${app.plan.name}` : 'Free'}
         </button>
+        {app.ai.demo && <span className="chip review" title="The assistant is returning scripted replies">Demo AI</span>}
         <InstallButton />
       </header>
 

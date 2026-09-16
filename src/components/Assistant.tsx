@@ -3,6 +3,21 @@ import { useApp } from '../store'
 import { CEREMONY_LABELS, LANGUAGE_LABELS, LANGUAGES, type Language } from '../lib/aiContract'
 import type { Photo } from '../lib/types'
 
+/** Scripted replies must never be able to read as live AI. */
+export function DemoBadge() {
+  const app = useApp()
+  if (!app.ai.demo) return null
+  return (
+    <div className="demo-badge" role="note">
+      <b>Demo mode</b>
+      <span>
+        Scripted replies, not live AI — so a presentation works with no key and no network. Set
+        ANTHROPIC_API_KEY on the server for the real assistant.
+      </span>
+    </div>
+  )
+}
+
 export function AiOffNotice({ reason }: { reason?: string }) {
   return (
     <div className="notice">
@@ -73,8 +88,12 @@ export function CuratePanel({ onPlanned }: { onPlanned?: () => void }) {
               : 'Currently unavailable.'}
           </p>
         </div>
-        {app.ai.enabled && <span className="chip finalized">{app.ai.model}</span>}
+        {app.ai.enabled && (
+          <span className={`chip ${app.ai.demo ? 'review' : 'finalized'}`}>{app.ai.model}</span>
+        )}
       </div>
+
+      <DemoBadge />
 
       {!app.ai.enabled ? (
         <AiOffNotice reason={app.ai.reason} />
