@@ -3,8 +3,8 @@
    Two front ends call into here: `server/index.ts` (the standalone Node server
    used for Docker and self-hosting) and `api/*.ts` (Vercel serverless
    functions). Keeping the logic here means both behave identically. */
-import { aiConfigured, AiError, buildStory, curateBatch, CURATE_BATCH, editAlbum, MODEL } from './claude'
-import type { AiStatus, CurateRequest, EditRequest, StoryRequest } from '../src/lib/aiContract'
+import { aiConfigured, AiError, buildStory, curateBatch, CURATE_BATCH, editAlbum, MODEL } from './claude.js'
+import type { AiStatus, CurateRequest, EditRequest, StoryRequest } from '../src/lib/aiContract.js'
 
 export interface ApiResponse {
   status: number

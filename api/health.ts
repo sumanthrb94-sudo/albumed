@@ -1,1 +1,1 @@
-export { healthHandler as default } from '../server/vercel'
+export { healthHandler as default } from '../server/vercel.js'

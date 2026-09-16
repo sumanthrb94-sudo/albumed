@@ -12,8 +12,8 @@ import {
   type EditResult,
   type Story,
   type StoryRequest,
-} from '../src/lib/aiContract'
-import { curateSystem, editSystem, storySystem } from './prompts'
+} from '../src/lib/aiContract.js'
+import { curateSystem, editSystem, storySystem } from './prompts.js'
 
 export const MODEL = process.env.ALBUMED_MODEL ?? 'claude-opus-5'
 

@@ -3,7 +3,7 @@
 
    This deliberately lives outside api/ — everything in there is a route. */
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { aiRoute, health, SECURITY_HEADERS, type AiRoute, type ApiResponse } from './handlers'
+import { aiRoute, health, SECURITY_HEADERS, type AiRoute, type ApiResponse } from './handlers.js'
 
 export function send(res: VercelResponse, r: ApiResponse): void {
   for (const [k, v] of Object.entries({ ...SECURITY_HEADERS, ...(r.headers ?? {}) })) res.setHeader(k, v)

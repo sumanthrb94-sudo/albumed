@@ -71,3 +71,19 @@ test('every file in api/ is a route with a default export', () => {
 test('the AI routes ask for longer than the default execution limit', () => {
   assert.ok((vercel.functions['api/**/*.ts']?.maxDuration ?? 0) >= 60)
 })
+
+test('every relative import in api/ and server/ carries its extension', () => {
+  // package.json sets "type": "module", so Vercel compiles these to ESM — and
+  // Node ESM will not resolve an extensionless relative specifier. The bundled
+  // standalone server hides this; the deployed functions do not.
+  const walk = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(join(dir, e.name)) : join(dir, e.name).endsWith('.ts') ? [join(dir, e.name)] : [],
+    )
+  for (const file of [...walk('api'), ...walk('server')]) {
+    const src = readFileSync(file, 'utf8')
+    for (const m of src.matchAll(/from '(\.[^']*)'/g)) {
+      assert.ok(m[1].endsWith('.js'), `${file} imports "${m[1]}" without an extension — Node ESM cannot resolve it`)
+    }
+  }
+})
