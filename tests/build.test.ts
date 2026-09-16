@@ -87,3 +87,18 @@ test('every relative import in api/ and server/ carries its extension', () => {
     }
   }
 })
+
+test('no screen calls a hook after an early return', { skip: !has }, () => {
+  // React requires every hook to run on every render. A useState/useEffect placed
+  // after `if (!project) return null` throws the moment the guard stops firing —
+  // which is exactly when the screen finally has data to show.
+  const files = readdirSync('src/screens').filter((f) => f.endsWith('.tsx'))
+  for (const f of files) {
+    const src = readFileSync(join('src/screens', f), 'utf8')
+    const firstReturn = src.search(/^\s{2}if \([^)]*\) return null/m)
+    if (firstReturn < 0) continue
+    const after = src.slice(firstReturn)
+    const hook = after.match(/\n\s*(?:const [^=]*= )?(useState|useEffect|useMemo|useCallback|useRef)\(/)
+    assert.equal(hook, null, `${f} calls ${hook?.[1]} after an early return`)
+  }
+})

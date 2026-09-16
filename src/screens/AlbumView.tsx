@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useApp } from '../store'
 import { PageCanvas } from '../components/PageCanvas'
 import { AlbumChat } from '../components/AlbumChat'
@@ -16,6 +16,17 @@ export function AlbumView({ nav }: { nav: (hash: string) => void }) {
   const [dpi, setDpi] = useState(150)
   const mergeRef = useRef<HTMLInputElement | null>(null)
   const reimportRef = useRef<HTMLInputElement | null>(null)
+  const planLimits = app.plan.limits
+
+  // Every hook must run on every render, so this sits above the early returns
+  // below. Subscribing should not leave the export on the draft setting, and
+  // downgrading must not leave it on a resolution the plan cannot use.
+  useEffect(() => {
+    setDpi((current) =>
+      Math.min(Math.max(current, planLimits.printGrade ? 300 : 150), planLimits.maxExportDpi),
+    )
+  }, [planLimits.printGrade, planLimits.maxExportDpi])
+
   const project = app.project
   const album = app.album
 
