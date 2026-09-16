@@ -1,7 +1,7 @@
 /* Albumed service worker: app-shell offline support.
    Navigations: network-first with cache fallback (so the app opens offline).
    Same-origin assets + Google Fonts: cache-first with background refresh. */
-const CACHE = 'albumed-v1'
+const CACHE = 'albumed-v2'
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
@@ -21,8 +21,9 @@ self.addEventListener('fetch', (e) => {
   const req = e.request
   if (req.method !== 'GET') return
   const url = new URL(req.url)
-  const isFont = url.hostname.endsWith('gstatic.com') || url.hostname.endsWith('googleapis.com')
-  if (url.origin !== self.location.origin && !isFont) return
+  if (url.origin !== self.location.origin) return
+  // The album assistant is live data — never serve it from the cache.
+  if (url.pathname.startsWith('/api/')) return
 
   if (req.mode === 'navigate') {
     e.respondWith(
@@ -42,7 +43,7 @@ self.addEventListener('fetch', (e) => {
       (hit) =>
         hit ||
         fetch(req).then((res) => {
-          if (res.ok || res.type === 'opaque') {
+          if (res.ok) {
             const copy = res.clone()
             caches.open(CACHE).then((c) => c.put(req, copy))
           }

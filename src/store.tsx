@@ -3,8 +3,12 @@ import * as db from './lib/db'
 import { uid } from './lib/id'
 import { makeSamplePhoto, prepareUpload, releaseThumbUrl, SAMPLE_COUNT } from './lib/images'
 import { generatePages, relayoutPage } from './lib/layout'
-import { pageSizeById, themeById, THEMES } from './lib/themes'
+import { pageSizeById, themeById, THEMES, PAGE_SIZES } from './lib/themes'
 import type { Album, AlbumOptions, Photo, PhotoSource, PhotoStatus, Project } from './lib/types'
+import type { AiStatus, EditOp, Language, PhotoVerdict } from './lib/aiContract'
+import { aiStatus as fetchAiStatus, buildStory as aiBuildStory, curatePhotos, requestEdit } from './lib/ai'
+import { applyOps } from './lib/applyOps'
+import { uid as newId } from './lib/id'
 
 export type ProjectInit = Partial<Omit<Project, 'album'>> & { album?: Partial<AlbumOptions> }
 
@@ -12,6 +16,19 @@ export interface Progress {
   done: number
   total: number
   label: string
+}
+
+export interface ChatTurn {
+  role: 'user' | 'assistant'
+  content: string
+  changes?: string[]
+  rejected?: string[]
+  failed?: boolean
+}
+
+export interface AiState extends AiStatus {
+  batch: number
+  busy: string | null
 }
 
 interface Ctx {
@@ -42,6 +59,17 @@ interface Ctx {
   refreshProjects: () => Promise<void>
   /** One-tap end-to-end demo: sample photos -> approved -> finalized album. */
   startDemo: (themeId?: string) => Promise<string>
+
+  /* ---- album assistant ---- */
+  ai: AiState
+  chat: ChatTurn[]
+  canUndo: boolean
+  setLanguage: (language: Language) => Promise<void>
+  runCurate: () => Promise<{ kept: number; dropped: number } | null>
+  runStory: () => Promise<boolean>
+  sendEdit: (instruction: string) => Promise<void>
+  undoAiEdit: () => Promise<void>
+  clearChat: () => void
 }
 
 const AppCtx = createContext<Ctx | null>(null)
@@ -58,10 +86,24 @@ const defaultAlbum = (): AlbumOptions => ({
   density: 'balanced',
   includeCover: true,
   includeClosing: true,
+  includeChapterPages: true,
   showCaptions: true,
   showPageNumbers: true,
+  featuredPhotoIds: [],
   seed: Math.floor(Math.random() * 100000),
 })
+
+/** Projects created before a field existed still have to open. */
+function hydrate(p: Project): Project {
+  return {
+    ...p,
+    language: p.language ?? 'english',
+    chapters: p.chapters ?? [],
+    album: { ...defaultAlbum(), ...p.album },
+  }
+}
+
+const themeCatalogue = () => THEMES.map((t) => ({ id: t.id, name: t.name, occasion: t.occasion, blurb: t.blurb }))
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
@@ -71,8 +113,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [album, setAlbum] = useState<Album | null>(null)
   const [progress, setProgress] = useState<Progress | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [ai, setAi] = useState<AiState>({ enabled: false, model: '', batch: 6, busy: null })
+  const [chat, setChat] = useState<ChatTurn[]>([])
+  const undoStack = useRef<Array<{ project: Project; photos: Photo[] }>>([])
+  const [canUndo, setCanUndo] = useState(false)
   const projectRef = useRef<Project | null>(null)
+  const photosRef = useRef<Photo[]>([])
   projectRef.current = project
+  photosRef.current = photos
 
   const refreshProjects = useCallback(async () => {
     const list = await db.getProjects()
@@ -83,6 +131,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refreshProjects().finally(() => setReady(true))
   }, [refreshProjects])
+
+  useEffect(() => {
+    fetchAiStatus().then((s) => setAi((prev) => ({ ...prev, ...s })))
+  }, [])
 
   useEffect(() => {
     if (!toast) return
@@ -114,6 +166,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createdAt: now,
         updatedAt: now,
         album: { ...defaultAlbum(), ...(init.album ?? {}) },
+        language: init.language ?? 'english',
+        chapters: [],
       }
       await db.putProject(p)
       await refreshProjects()
@@ -123,11 +177,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   )
 
   const openProject = useCallback(async (id: string) => {
-    const p = await db.getProject(id)
-    if (!p) return
+    const raw = await db.getProject(id)
+    if (!raw) return
+    const p = hydrate(raw)
     setProject(p)
     setPhotos(await db.getPhotos(id))
     setAlbum((await db.getAlbum(id)) ?? null)
+    setChat([])
+    undoStack.current = []
+    setCanUndo(false)
   }, [])
 
   const closeProject = useCallback(() => {
@@ -274,6 +332,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const approved = list.filter((x) => x.status === 'approved').sort((a, b) => a.order - b.order)
       const pages = generatePages({
         photos: approved,
+        chapters: p.chapters,
+        includeChapterPages: p.album.includeChapterPages,
+        featuredPhotoIds: p.album.featuredPhotoIds,
         density: p.album.density,
         pageAspect: size.w / size.h,
         seed: seed ?? p.album.seed,
@@ -384,6 +445,244 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [addSamples, buildAlbum, createProject, persist],
   )
 
+
+  /* ---------------- album assistant ---------------- */
+
+  const snapshot = useCallback(() => {
+    const cur = projectRef.current
+    if (!cur) return
+    undoStack.current = [{ project: cur, photos: photosRef.current.map((p) => ({ ...p })) }, ...undoStack.current].slice(0, 5)
+    setCanUndo(true)
+  }, [])
+
+  const setLanguage = useCallback(
+    async (language: Language) => {
+      const cur = projectRef.current
+      if (!cur) return
+      await persist({ ...cur, language })
+    },
+    [persist],
+  )
+
+  const occasionOf = (p: Project) => {
+    const theme = themeById(p.album.themeId)
+    return p.occasionNote?.trim() ? `${theme.occasion} — ${p.occasionNote.trim()}` : theme.occasion
+  }
+
+  const applyVerdicts = useCallback(async (cur: Project, verdicts: PhotoVerdict[]) => {
+    const all = await db.getPhotos(cur.id)
+    const map = new Map(verdicts.map((v) => [v.id, v]))
+    const next = all.map((p) => {
+      const v = map.get(p.id)
+      if (!v) return p
+      return {
+        ...p,
+        status: (v.keep ? 'approved' : 'rejected') as PhotoStatus,
+        starred: v.hero,
+        caption: p.caption || v.caption,
+        captionNative: v.caption_native || undefined,
+        ceremony: v.ceremony,
+        aiScore: Math.round(v.score),
+        aiIssues: v.issues,
+        aiReason: v.reason,
+        focusX: v.focus_x,
+        focusY: v.focus_y,
+      }
+    })
+    await db.putPhotos(next.filter((p) => map.has(p.id)))
+    setPhotos(next)
+    return next
+  }, [])
+
+  const runCurate = useCallback(async () => {
+    const cur = projectRef.current
+    if (!cur) return null
+    const targets = photosRef.current
+    if (!targets.length) {
+      setToast('Add some photos first.')
+      return null
+    }
+    snapshot()
+    setAi((a) => ({ ...a, busy: 'Looking through your photos…' }))
+    setProgress({ done: 0, total: targets.length, label: 'The assistant is reviewing your photos' })
+    try {
+      const verdicts = await curatePhotos(
+        targets.map((p) => ({ id: p.id, name: p.name })),
+        { occasion: occasionOf(cur), language: cur.language, notes: cur.occasionNote, batch: ai.batch },
+        (p) => setProgress({ done: p.done, total: p.total, label: 'The assistant is reviewing your photos' }),
+      )
+      if (!verdicts.length) {
+        setToast('The assistant did not return any verdicts.')
+        return null
+      }
+      const next = await applyVerdicts(cur, verdicts)
+      await persist({ ...cur, curatedAt: Date.now(), status: cur.status === 'collecting' ? 'review' : cur.status })
+      const kept = next.filter((p) => p.status === 'approved').length
+      const dropped = next.filter((p) => p.status === 'rejected').length
+      setToast(`Reviewed ${verdicts.length} photos — ${kept} kept, ${dropped} left out.`)
+      return { kept, dropped }
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : 'The assistant could not review these photos.')
+      return null
+    } finally {
+      setProgress(null)
+      setAi((a) => ({ ...a, busy: null }))
+    }
+  }, [ai.batch, applyVerdicts, persist, snapshot])
+
+  const runStory = useCallback(async () => {
+    const cur = projectRef.current
+    if (!cur) return false
+    const approved = photosRef.current.filter((p) => p.status === 'approved')
+    if (approved.length < 2) {
+      setToast('Approve at least two photos first.')
+      return false
+    }
+    snapshot()
+    setAi((a) => ({ ...a, busy: 'Planning the running order…' }))
+    try {
+      const story = await aiBuildStory({
+        occasion: occasionOf(cur),
+        language: cur.language,
+        hosts: cur.hosts,
+        eventDate: cur.eventDate,
+        venue: cur.venue,
+        notes: cur.occasionNote,
+        themeIds: themeCatalogue(),
+        photos: approved.map((p) => ({
+          id: p.id,
+          ceremony: p.ceremony ?? 'other',
+          score: p.aiScore ?? 60,
+          hero: p.starred,
+          caption: p.caption,
+        })),
+      })
+
+      // Keep only real photo ids, and never place the same photo in two chapters.
+      const live = new Set(approved.map((p) => p.id))
+      const placed = new Set<string>()
+      const chapters = story.chapters
+        .map((c) => {
+          const photoIds: string[] = []
+          for (const id of c.photo_ids) {
+            if (!live.has(id) || placed.has(id)) continue
+            placed.add(id)
+            photoIds.push(id)
+          }
+          return { id: c.id || newId('ch_'), title: c.title, titleNative: c.title_native, blurb: c.blurb, photoIds }
+        })
+        .filter((c) => c.photoIds.length > 0)
+
+      const themeId = THEMES.some((t) => t.id === story.theme_id) ? story.theme_id : cur.album.themeId
+      const coverPhotoId = live.has(story.cover_photo_id) ? story.cover_photo_id : cur.coverPhotoId
+
+      const next = await persist({
+        ...cur,
+        title: story.title || cur.title,
+        hosts: story.subtitle || cur.hosts,
+        chapters,
+        coverPhotoId,
+        aiNotes: story.notes,
+        status: 'finalized',
+        finalizedAt: cur.finalizedAt ?? Date.now(),
+        album: { ...cur.album, themeId },
+      })
+      await buildAlbum(next, await db.getPhotos(cur.id))
+      setToast(`Album planned — ${chapters.length} chapters.`)
+      return true
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : 'The assistant could not plan this album.')
+      return false
+    } finally {
+      setAi((a) => ({ ...a, busy: null }))
+    }
+  }, [buildAlbum, persist, snapshot])
+
+  const sendEdit = useCallback(
+    async (instruction: string) => {
+      const cur = projectRef.current
+      if (!cur || !instruction.trim()) return
+      const history = chat.map((t) => ({ role: t.role, content: t.content }))
+      setChat((c) => [...c, { role: 'user', content: instruction }])
+      setAi((a) => ({ ...a, busy: 'Working on it…' }))
+      try {
+        const result = await requestEdit({
+          instruction,
+          language: cur.language,
+          history,
+          album: {
+            title: cur.title,
+            hosts: cur.hosts,
+            eventDate: cur.eventDate,
+            venue: cur.venue,
+            themeId: cur.album.themeId,
+            pageSizeId: cur.album.pageSizeId,
+            density: cur.album.density,
+            showCaptions: cur.album.showCaptions,
+            showPageNumbers: cur.album.showPageNumbers,
+            includeCover: cur.album.includeCover,
+            includeClosing: cur.album.includeClosing,
+            includeChapterPages: cur.album.includeChapterPages,
+            coverPhotoId: cur.coverPhotoId,
+          },
+          themeIds: themeCatalogue(),
+          pageSizeIds: PAGE_SIZES.map((s) => ({ id: s.id, label: s.label })),
+          chapters: cur.chapters.map((c) => ({ id: c.id, title: c.title, photoCount: c.photoIds.length })),
+          photos: photosRef.current.map((p) => ({
+            id: p.id,
+            ceremony: p.ceremony ?? 'other',
+            status: p.status,
+            starred: p.starred,
+            caption: p.caption,
+            score: p.aiScore,
+            issues: p.aiIssues,
+          })),
+        })
+
+        if (result.ops.length) {
+          snapshot()
+          const applied = applyOps(cur, photosRef.current, result.ops as EditOp[])
+          await db.putPhotos(applied.photos)
+          setPhotos(applied.photos)
+          const saved = await persist(applied.project)
+          if (applied.needsRelayout) await buildAlbum(saved, applied.photos)
+          setChat((c) => [
+            ...c,
+            { role: 'assistant', content: result.reply, changes: applied.changes, rejected: applied.rejected },
+          ])
+        } else {
+          setChat((c) => [...c, { role: 'assistant', content: result.reply }])
+        }
+      } catch (err) {
+        setChat((c) => [
+          ...c,
+          {
+            role: 'assistant',
+            content: err instanceof Error ? err.message : 'That did not work.',
+            failed: true,
+          },
+        ])
+      } finally {
+        setAi((a) => ({ ...a, busy: null }))
+      }
+    },
+    [buildAlbum, chat, persist, snapshot],
+  )
+
+  const undoAiEdit = useCallback(async () => {
+    const [last, ...rest] = undoStack.current
+    if (!last) return
+    undoStack.current = rest
+    setCanUndo(rest.length > 0)
+    await db.putPhotos(last.photos)
+    setPhotos(last.photos)
+    const saved = await persist(last.project)
+    if (saved.status === 'finalized') await buildAlbum(saved, last.photos)
+    setToast('Reverted the last change.')
+  }, [buildAlbum, persist])
+
+  const clearChat = useCallback(() => setChat([]), [])
+
   // Regenerating on option changes keeps the preview honest with the settings.
   const lastOptsRef = useRef<string>('')
   useEffect(() => {
@@ -394,6 +693,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       project.album.density,
       project.album.includeCover,
       project.album.includeClosing,
+      project.album.includeChapterPages,
+      project.album.featuredPhotoIds.join(','),
+      project.chapters.map((c) => c.id).join(','),
       project.coverPhotoId,
     ])
     if (lastOptsRef.current === '') {
@@ -433,6 +735,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       movePage,
       refreshProjects,
       startDemo,
+      ai,
+      chat,
+      canUndo,
+      setLanguage,
+      runCurate,
+      runStory,
+      sendEdit,
+      undoAiEdit,
+      clearChat,
     }),
     [
       ready,
@@ -460,6 +771,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       movePage,
       refreshProjects,
       startDemo,
+      ai,
+      chat,
+      canUndo,
+      setLanguage,
+      runCurate,
+      runStory,
+      sendEdit,
+      undoAiEdit,
+      clearChat,
     ],
   )
 

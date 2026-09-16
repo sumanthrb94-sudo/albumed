@@ -2,8 +2,5 @@ node_modules
 dist
 dist-server
 demo-output
-.env
-.env.local
-*.local
-.DS_Store
-.vite
+.git
+*.md

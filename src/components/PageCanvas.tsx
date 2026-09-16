@@ -46,7 +46,7 @@ export function PageCanvas({ page, pageIndex, pageCount, project, photos, maxWid
       })
 
     paint()
-    Promise.all([ensureFonts(), preloadPage(page, previewCache, 'thumb')]).then(() => {
+    Promise.all([ensureFonts(project.language), preloadPage(page, previewCache, 'thumb')]).then(() => {
       if (!alive) return
       paint()
       force((n) => n + 1)

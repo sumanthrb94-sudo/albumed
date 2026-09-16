@@ -1,3 +1,5 @@
+import type { Ceremony, Language } from './aiContract'
+
 export type PhotoStatus = 'pending' | 'approved' | 'rejected'
 export type PhotoSource = 'photographer' | 'customer'
 export type ProjectStatus = 'collecting' | 'review' | 'finalized'
@@ -20,6 +22,20 @@ export interface Photo {
   takenAt?: number
   /** Sort order within the project. */
   order: number
+
+  /* ---- filled in by the album assistant ---- */
+  /** Which part of the celebration this belongs to. */
+  ceremony?: Ceremony
+  /** 0-100, how well it prints. */
+  aiScore?: number
+  aiIssues?: string[]
+  /** Why the assistant kept or dropped it. */
+  aiReason?: string
+  /** Caption in the album's regional language. */
+  captionNative?: string
+  /** Main subject's position in the frame (0-1), used when cropping to a slot. */
+  focusX?: number
+  focusY?: number
 }
 
 export interface PageSizeSpec {
@@ -38,8 +54,21 @@ export interface AlbumOptions {
   includeClosing: boolean
   showCaptions: boolean
   showPageNumbers: boolean
+  /** Print a divider page in front of each chapter. */
+  includeChapterPages: boolean
+  /** Photos the customer or the assistant asked to give a page of their own. */
+  featuredPhotoIds: string[]
   /** Random seed so "regenerate" produces a different but reproducible album. */
   seed: number
+}
+
+/** A run of photos the assistant grouped under one heading. */
+export interface AlbumChapter {
+  id: string
+  title: string
+  titleNative: string
+  blurb: string
+  photoIds: string[]
 }
 
 export interface Project {
@@ -56,6 +85,13 @@ export interface Project {
   finalizedAt?: number
   album: AlbumOptions
   coverPhotoId?: string
+  /** Language for printed captions and chapter titles. */
+  language: Language
+  /** Running order authored by the assistant; empty means a plain chronological album. */
+  chapters: AlbumChapter[]
+  /** What the assistant said about its choices, shown once in the UI. */
+  aiNotes?: string
+  curatedAt?: number
 }
 
 export type SlotShape = 'rect' | 'round' | 'arch' | 'circle'
@@ -72,16 +108,20 @@ export interface Slot extends Rect {
   shape?: SlotShape
 }
 
-export type PageKind = 'cover' | 'photos' | 'closing'
+export type PageKind = 'cover' | 'chapter' | 'photos' | 'closing'
 
 export interface AlbumPage {
   id: string
   kind: PageKind
   templateId: string
   slots: Slot[]
-  /** Optional page heading, used on cover and closing pages. */
+  /** Optional page heading, used on cover, chapter and closing pages. */
   heading?: string
   subheading?: string
+  /** Small line under a chapter heading. */
+  blurb?: string
+  /** The chapter this page belongs to, when the album has chapters. */
+  chapterId?: string
 }
 
 export interface Album {

@@ -5,7 +5,7 @@
    pages using a per-density rhythm, then picks the template whose slot
    orientations best match that chunk. */
 import { rng, uid } from './id'
-import type { AlbumPage, Density, Photo, Rect, Slot } from './types'
+import type { AlbumChapter, AlbumPage, Density, Photo, Rect, Slot } from './types'
 
 type Orient = 'p' | 'l' | 'a'
 
@@ -268,6 +268,9 @@ function assign(photos: Photo[], t: Template, pageAspect: number, shape: Slot['s
 
 export interface GenerateInput {
   photos: Photo[]
+  /** When present the album is laid out chapter by chapter, in this order. */
+  chapters?: AlbumChapter[]
+  includeChapterPages?: boolean
   density: Density
   pageAspect: number
   seed: number
@@ -275,10 +278,64 @@ export interface GenerateInput {
   includeClosing: boolean
   coverPhotoId?: string
   shape: Slot['shape']
+  featuredPhotoIds?: string[]
   coverHeading: string
   coverSub: string
   closingHeading: string
   closingSub: string
+}
+
+/** Lay one run of photos out across as many pages as its rhythm needs. */
+function photoPages(
+  photos: Photo[],
+  density: Density,
+  pageAspect: number,
+  shape: Slot['shape'],
+  rand: () => number,
+  chapterId: string | undefined,
+  state: { lastTemplate: string | null; step: number },
+  featured: Set<string>,
+): AlbumPage[] {
+  const rhythm = RHYTHM[density]
+  const out: AlbumPage[] = []
+  let i = 0
+
+  while (i < photos.length) {
+    let take = rhythm[state.step % rhythm.length]
+    state.step++
+    const left = photos.length - i
+    if (left - take === 1 && take > 1) take -= 1 // avoid a lonely single page at the end
+    take = Math.min(take, left, 6)
+    if (featured.has(photos[i].id)) {
+      take = 1 // a featured photo gets the page to itself
+    } else {
+      // stop the run before the next featured photo so it starts its own page
+      for (let k = 1; k < take; k++) {
+        if (featured.has(photos[i + k].id)) {
+          take = k
+          break
+        }
+      }
+    }
+    const chunk = photos.slice(i, i + take)
+    i += take
+
+    const candidates = templatesFor(chunk.length)
+    const chosen =
+      candidates
+        .map((t) => ({ t, s: scoreTemplate(t, chunk, pageAspect, state.lastTemplate) + rand() * 1.5 }))
+        .sort((a, b) => b.s - a.s)[0]?.t ?? candidates[0]
+    state.lastTemplate = chosen.id
+
+    out.push({
+      id: uid('pg_'),
+      kind: 'photos',
+      templateId: chosen.id,
+      slots: assign(chunk, chosen, pageAspect, shape),
+      chapterId,
+    })
+  }
+  return out
 }
 
 export function generatePages(input: GenerateInput): AlbumPage[] {
@@ -301,33 +358,39 @@ export function generatePages(input: GenerateInput): AlbumPage[] {
     })
   }
 
-  const rhythm = RHYTHM[density]
-  let i = 0
-  let step = Math.floor(rand() * rhythm.length)
-  let lastTemplate: string | null = null
+  const state = { lastTemplate: null as string | null, step: Math.floor(rand() * 8) }
+  const featured = new Set(input.featuredPhotoIds ?? [])
+  const byId = new Map(photos.map((p) => [p.id, p]))
+  const chapters = (input.chapters ?? []).filter((c) => c.photoIds.some((id) => byId.has(id)))
 
-  while (i < photos.length) {
-    let take = rhythm[step % rhythm.length]
-    step++
-    const left = photos.length - i
-    if (left - take === 1 && take > 1) take -= 1 // avoid a lonely single page at the end
-    take = Math.min(take, left, 6)
-    const chunk = photos.slice(i, i + take)
-    i += take
-
-    const candidates = templatesFor(chunk.length)
-    const scored = candidates
-      .map((t) => ({ t, s: scoreTemplate(t, chunk, pageAspect, lastTemplate) + rand() * 1.5 }))
-      .sort((a, b) => b.s - a.s)
-    const chosen = scored[0]?.t ?? candidates[0]
-    lastTemplate = chosen.id
-
-    pages.push({
-      id: uid('pg_'),
-      kind: 'photos',
-      templateId: chosen.id,
-      slots: assign(chunk, chosen, pageAspect, shape),
-    })
+  if (chapters.length) {
+    const used = new Set<string>()
+    for (const chapter of chapters) {
+      const run = chapter.photoIds
+        .map((id) => byId.get(id))
+        .filter((p): p is Photo => Boolean(p) && !used.has(p!.id))
+      run.forEach((p) => used.add(p.id))
+      if (!run.length) continue
+      if (input.includeChapterPages && run.length >= 2) {
+        pages.push({
+          id: uid('pg_'),
+          kind: 'chapter',
+          templateId: 'chapter',
+          slots: [{ x: 0, y: 0, w: 1, h: 1, photoId: run[0].id, shape: 'rect' }],
+          heading: chapter.title,
+          subheading: chapter.titleNative,
+          blurb: chapter.blurb,
+          chapterId: chapter.id,
+        })
+      }
+      pages.push(...photoPages(run, density, pageAspect, shape, rand, chapter.id, state, featured))
+    }
+    // Anything the assistant did not place still belongs in the album.
+    const leftovers = photos.filter((p) => !used.has(p.id))
+    if (leftovers.length)
+      pages.push(...photoPages(leftovers, density, pageAspect, shape, rand, undefined, state, featured))
+  } else {
+    pages.push(...photoPages(photos, density, pageAspect, shape, rand, undefined, state, featured))
   }
 
   if (input.includeClosing) {

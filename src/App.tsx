@@ -5,6 +5,7 @@ import { Upload } from './screens/Upload'
 import { Review } from './screens/Review'
 import { Design } from './screens/Design'
 import { AlbumView } from './screens/AlbumView'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 type Tab = 'upload' | 'review' | 'design' | 'album'
 const TABS: Array<{ id: Tab; label: string }> = [
@@ -178,8 +179,10 @@ function LockedNotice({ approved, nav, id }: { approved: number; nav: (h: string
 
 export default function App() {
   return (
-    <AppProvider>
-      <Shell />
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <Shell />
+      </AppProvider>
+    </ErrorBoundary>
   )
 }

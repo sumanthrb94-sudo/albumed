@@ -29,7 +29,7 @@ export async function renderPageToCanvas(
   pageIndex: number,
   dpi: number,
 ): Promise<HTMLCanvasElement> {
-  await ensureFonts()
+  await ensureFonts(project.language)
   const { W, H } = pagePixels(project, dpi)
   const canvas = document.createElement('canvas')
   canvas.width = W
@@ -58,7 +58,7 @@ export async function exportPdf(
   opts: ExportOpts,
   onProgress?: (p: ExportProgress) => void,
 ): Promise<Blob> {
-  await ensureFonts()
+  await ensureFonts(project.language)
   const { W, H, size } = pagePixels(project, opts.dpi)
   const doc = new jsPDF({
     unit: 'in',

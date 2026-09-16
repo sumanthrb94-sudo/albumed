@@ -3,6 +3,7 @@ import { useApp } from '../store'
 import { ThemeGallery } from '../components/ThemeGallery'
 import { PageCanvas } from '../components/PageCanvas'
 import { PAGE_SIZES, THEMES, themeById } from '../lib/themes'
+import { LanguagePicker } from '../components/Assistant'
 import type { Density } from '../lib/types'
 
 const OCCASIONS = ['All', ...Array.from(new Set(THEMES.map((t) => t.occasion)))]
@@ -43,6 +44,29 @@ export function Design({ nav }: { nav: (hash: string) => void }) {
         />
       </div>
 
+      {project.chapters.length > 0 && (
+        <div className="card">
+          <h2>Running order</h2>
+          <p className="hint">
+            {project.aiNotes ?? 'The chapters the album is built from. Ask the assistant on the album screen to change them.'}
+          </p>
+          <ul className="chapters">
+            {project.chapters.map((c, i) => (
+              <li key={c.id}>
+                <span className="n">{i + 1}</span>
+                <span>
+                  <span className="who">{c.title}</span>
+                  {c.titleNative && <span className="native"> · {c.titleNative}</span>}
+                  <br />
+                  <span className="hint">{c.blurb}</span>
+                </span>
+                <span className="count">{c.photoIds.length} photos</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="card">
         <h2>Album details</h2>
         <div className="grid2" style={{ marginTop: 10 }}>
@@ -70,6 +94,7 @@ export function Design({ nav }: { nav: (hash: string) => void }) {
         </div>
 
         <div className="grid2">
+          <LanguagePicker />
           <label className="field">
             <span>Page size</span>
             <select
@@ -106,6 +131,18 @@ export function Design({ nav }: { nav: (hash: string) => void }) {
             onChange={(e) => app.updateAlbumOptions({ includeCover: e.target.checked })}
           />
           <label htmlFor="cover">Cover page</label>
+        </div>
+        <div className="switch">
+          <input
+            id="chapters"
+            type="checkbox"
+            checked={project.album.includeChapterPages}
+            disabled={!project.chapters.length}
+            onChange={(e) => app.updateAlbumOptions({ includeChapterPages: e.target.checked })}
+          />
+          <label htmlFor="chapters">
+            Chapter divider pages{!project.chapters.length && ' (ask the assistant to plan the album first)'}
+          </label>
         </div>
         <div className="switch">
           <input

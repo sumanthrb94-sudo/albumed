@@ -2,7 +2,8 @@
    export, so the preview is genuinely WYSIWYG — only the pixel size changes. */
 import { rng } from './id'
 import * as M from './motifs'
-import { themeById, type Theme } from './themes'
+import { scriptFontFor, themeById, type Theme } from './themes'
+import type { Language } from './aiContract'
 import type { AlbumPage, Photo, Project, Slot } from './types'
 import type { BitmapCache, Decoded, Quality } from './images'
 
@@ -20,26 +21,47 @@ export interface RenderOpts {
   allowPlaceholders?: boolean
 }
 
-let fontsReady: Promise<void> | null = null
+const fontsReady = new Map<string, Promise<void>>()
+
+/* Google splits each family into unicode-range subsets, so a font has to be
+   requested with text in its own script or the wrong subset (or none) loads. */
+const SCRIPT_SAMPLES: Record<Language, [string, string]> = {
+  english: ['"Cormorant Garamond"', 'Sample'],
+  hindi: ['"Tiro Devanagari Hindi"', 'शुभ विवाह'],
+  tamil: ['"Noto Serif Tamil"', 'திருமணம்'],
+  telugu: ['"Noto Serif Telugu"', 'పెళ్లి'],
+  kannada: ['"Noto Serif Kannada"', 'ಮದುವೆ'],
+  malayalam: ['"Noto Serif Malayalam"', 'വിവാഹം'],
+}
+
+const BASE_FONTS = [
+  '400 48px Marcellus',
+  '400 48px "Cormorant Garamond"',
+  '600 48px "Cormorant Garamond"',
+  'italic 400 48px "Cormorant Garamond"',
+  '400 48px Mukta',
+  '600 48px Mukta',
+  '400 48px "Tiro Devanagari Hindi"',
+]
 
 /** Canvas needs the webfonts actually loaded before it can paint with them. */
-export function ensureFonts(): Promise<void> {
-  if (fontsReady) return fontsReady
-  const wanted = [
-    '400 48px Marcellus',
-    '400 48px "Cormorant Garamond"',
-    '600 48px "Cormorant Garamond"',
-    'italic 400 48px "Cormorant Garamond"',
-    '400 48px Mukta',
-    '600 48px Mukta',
-    '400 48px "Tiro Devanagari Hindi"',
-  ]
-  fontsReady = (async () => {
+export function ensureFonts(language: Language = 'english'): Promise<void> {
+  const cached = fontsReady.get(language)
+  if (cached) return cached
+  const [family, sample] = SCRIPT_SAMPLES[language] ?? SCRIPT_SAMPLES.english
+  const ready = (async () => {
     if (!('fonts' in document)) return
-    await Promise.all(wanted.map((f) => document.fonts.load(f).catch(() => undefined)))
+    await Promise.all([
+      ...BASE_FONTS.map((f) => document.fonts.load(f).catch(() => undefined)),
+      // The Devanagari flourishes on the cover print even for English albums.
+      document.fonts.load('400 48px "Tiro Devanagari Hindi"', 'शुभ').catch(() => undefined),
+      document.fonts.load(`400 48px ${family}`, sample).catch(() => undefined),
+      document.fonts.load(`600 48px ${family}`, sample).catch(() => undefined),
+    ])
     await document.fonts.ready.catch(() => undefined)
   })()
-  return fontsReady
+  fontsReady.set(language, ready)
+  return ready
 }
 
 /* ---------- shape helpers ---------- */
@@ -273,12 +295,36 @@ function drawBorder(ctx: Ctx, W: number, H: number, theme: Theme, u: number, see
       M.pearlRun(ctx, inset + u, W - inset - u, m * 0.55, u * 3, theme)
       M.pearlRun(ctx, inset + u, W - inset - u, H - m * 0.55, u * 3, theme)
       break
+    case 'pookalam':
+      for (const [cx, cy] of [
+        [inset + corner * 0.2, inset + corner * 0.2],
+        [W - inset - corner * 0.2, H - inset - corner * 0.2],
+      ] as const) {
+        ctx.save()
+        ctx.translate(cx, cy)
+        ctx.globalAlpha = 0.8
+        M.pookalam(ctx, corner * 0.6, theme)
+        ctx.restore()
+      }
+      break
+    case 'kasavu':
+      M.kasavuBand(ctx, 0, 0, W, H, u, theme)
+      break
   }
 }
 
 /* ---------- photo drawing ---------- */
 
-function drawImageCover(ctx: Ctx, img: Decoded, x: number, y: number, w: number, h: number) {
+/** Crop to fill the slot, keeping the subject's focal point in frame. */
+function drawImageCover(
+  ctx: Ctx,
+  img: Decoded,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  focus: { x: number; y: number } = { x: 0.5, y: 0.5 },
+) {
   const sr = img.width / img.height
   const dr = w / h
   let sw = img.width
@@ -287,13 +333,15 @@ function drawImageCover(ctx: Ctx, img: Decoded, x: number, y: number, w: number,
   let sy = 0
   if (sr > dr) {
     sw = img.height * dr
-    sx = (img.width - sw) / 2
+    sx = clamp(img.width * focus.x - sw / 2, 0, img.width - sw)
   } else {
     sh = img.width / dr
-    sy = (img.height - sh) / 2
+    sy = clamp(img.height * focus.y - sh / 2, 0, img.height - sh)
   }
   ctx.drawImage(img.bitmap, sx, sy, sw, sh, x, y, w, h)
 }
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
 function drawSlot(
   ctx: Ctx,
@@ -310,7 +358,8 @@ function drawSlot(
   const photo = opts.photos.get(slot.photoId)
   const img = opts.cache.get(slot.photoId, opts.quality)
   const showCaption = opts.project.album.showCaptions && Boolean(photo?.caption)
-  const capH = showCaption ? Math.min(h * 0.16, u * 3.2) : 0
+  const twoLine = showCaption && Boolean(photo?.captionNative?.trim())
+  const capH = showCaption ? Math.min(h * (twoLine ? 0.24 : 0.16), u * (twoLine ? 5.2 : 3.2)) : 0
   const ih = h - capH
   const shape = resolveShape(slot.shape, w, ih)
 
@@ -328,7 +377,10 @@ function drawSlot(
   shapePath(ctx, shape, x, y, w, ih, u)
   ctx.clip()
   if (img) {
-    drawImageCover(ctx, img, x, y, w, ih)
+    drawImageCover(ctx, img, x, y, w, ih, {
+      x: photo?.focusX ?? 0.5,
+      y: photo?.focusY ?? 0.5,
+    })
   } else {
     const g = ctx.createLinearGradient(x, y, x + w, y + ih)
     g.addColorStop(0, theme.palette.paperAlt)
@@ -357,13 +409,23 @@ function drawSlot(
   ctx.restore()
 
   if (showCaption && photo) {
-    text(ctx, photo.caption, x + w / 2, y + ih + capH * 0.72, {
+    const native = photo.captionNative?.trim()
+    const cy = y + ih + capH * (native ? 0.5 : 0.72)
+    text(ctx, photo.caption, x + w / 2, cy, {
       family: theme.bodyFont,
       weight: 'italic 400',
       color: theme.palette.inkSoft,
-      size: Math.min(capH * 0.62, u * 1.5),
+      size: Math.min(capH * (native ? 0.42 : 0.62), u * 1.5),
       maxW: w * 0.96,
     })
+    if (native) {
+      text(ctx, native, x + w / 2, y + ih + capH * 0.95, {
+        family: scriptFontFor(opts.project.language),
+        color: theme.palette.accent,
+        size: Math.min(capH * 0.44, u * 1.4),
+        maxW: w * 0.96,
+      })
+    }
   }
 }
 
@@ -475,7 +537,7 @@ function renderClosing(ctx: Ctx, W: number, H: number, opts: RenderOpts, theme: 
   const y = H * 0.68
   if (theme.closingScript) {
     text(ctx, opts.page.subheading || theme.closingScript, cx, y - u * 5, {
-      family: theme.scriptFont,
+      family: opts.project.language === 'english' ? theme.scriptFont : scriptFontFor(opts.project.language),
       color: theme.palette.gold,
       size: u * 5,
       maxW: W * 0.7,
@@ -502,6 +564,84 @@ function renderClosing(ctx: Ctx, W: number, H: number, opts: RenderOpts, theme: 
     size: u * 2.1,
     maxW: W * 0.7,
   })
+}
+
+/** Divider page announcing a chapter — the photo behind it is dimmed to a wash. */
+function renderChapter(ctx: Ctx, W: number, H: number, opts: RenderOpts, theme: Theme, u: number) {
+  paperBackground(ctx, W, H, theme)
+
+  const slot = opts.page.slots[0]
+  const img = slot ? opts.cache.get(slot.photoId, opts.quality) : null
+  const photo = slot ? opts.photos.get(slot.photoId) : undefined
+  if (img) {
+    drawImageCover(ctx, img, 0, 0, W, H, { x: photo?.focusX ?? 0.5, y: photo?.focusY ?? 0.5 })
+    // A wash that leaves the photo readable at the edges and clears a band for the title.
+    const wash = ctx.createLinearGradient(0, 0, 0, H)
+    wash.addColorStop(0, `${theme.palette.paper}b3`)
+    wash.addColorStop(0.32, `${theme.palette.paper}f2`)
+    wash.addColorStop(0.68, `${theme.palette.paper}f2`)
+    wash.addColorStop(1, `${theme.palette.paper}b3`)
+    ctx.fillStyle = wash
+    ctx.fillRect(0, 0, W, H)
+  }
+
+  drawBorder(ctx, W, H, theme, u, opts.project.album.seed + opts.pageIndex)
+
+  const cx = W / 2
+  const cy = H * 0.46
+
+  // A plain double ring frames the title without competing with it.
+  ctx.save()
+  ctx.translate(cx, cy - u * 1)
+  const r = Math.min(W, H) * 0.3
+  ctx.strokeStyle = theme.palette.gold
+  ctx.globalAlpha = 0.55
+  ctx.lineWidth = Math.max(0.5, u * 0.09)
+  ctx.beginPath()
+  ctx.arc(0, 0, r, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.globalAlpha = 0.3
+  ctx.lineWidth = Math.max(0.4, u * 0.05)
+  ctx.beginPath()
+  ctx.arc(0, 0, r - u * 1.1, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.globalAlpha = 0.7
+  ctx.fillStyle = theme.palette.gold
+  for (const a of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+    ctx.save()
+    ctx.translate(Math.cos(a) * r, Math.sin(a) * r)
+    ctx.rotate(Math.PI / 4)
+    ctx.fillRect(-u * 0.38, -u * 0.38, u * 0.76, u * 0.76)
+    ctx.restore()
+  }
+  ctx.restore()
+
+  const native = opts.page.subheading?.trim()
+  if (native) {
+    text(ctx, native, cx, cy - u * 9.5, {
+      family: scriptFontFor(opts.project.language),
+      color: theme.palette.gold,
+      size: u * 4.4,
+      maxW: W * 0.72,
+    })
+  }
+  text(ctx, opts.page.heading ?? '', cx, cy, {
+    family: theme.titleFont,
+    color: theme.palette.ink,
+    size: u * 6.4,
+    maxW: W * 0.78,
+    tracking: u * 0.1,
+  })
+  rule(ctx, cx, cy + u * 4, W * 0.2, theme, u)
+  if (opts.page.blurb) {
+    text(ctx, opts.page.blurb, cx, cy + u * 8.4, {
+      family: theme.bodyFont,
+      weight: 'italic 400',
+      color: theme.palette.inkSoft,
+      size: u * 2.6,
+      maxW: W * 0.66,
+    })
+  }
 }
 
 function renderPhotos(ctx: Ctx, W: number, H: number, opts: RenderOpts, theme: Theme, u: number) {
@@ -531,6 +671,7 @@ export function renderPage(ctx: Ctx, W: number, H: number, opts: RenderOpts): vo
   ctx.save()
   ctx.clearRect(0, 0, W, H)
   if (opts.page.kind === 'cover') renderCover(ctx, W, H, opts, theme, u)
+  else if (opts.page.kind === 'chapter') renderChapter(ctx, W, H, opts, theme, u)
   else if (opts.page.kind === 'closing') renderClosing(ctx, W, H, opts, theme, u)
   else renderPhotos(ctx, W, H, opts, theme, u)
   ctx.restore()

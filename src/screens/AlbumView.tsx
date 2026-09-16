@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useApp } from '../store'
 import { PageCanvas } from '../components/PageCanvas'
+import { AlbumChat } from '../components/AlbumChat'
 import { downloadBlob, exportPdf, renderPageToCanvas, safeFilename, shareOrDownload } from '../lib/pdf'
 import { exportBundle, mergeDecisions } from '../lib/bundle'
 import { canvasToBlob } from '../lib/images'
@@ -121,6 +122,8 @@ export function AlbumView({ nav }: { nav: (hash: string) => void }) {
         </div>
       </div>
 
+      <AlbumChat />
+
       <div className="card">
         <h2>Share &amp; handover</h2>
         <p className="hint">
@@ -163,7 +166,13 @@ export function AlbumView({ nav }: { nav: (hash: string) => void }) {
             />
             <div className="page-tools">
               <span className="lbl">
-                {page.kind === 'cover' ? 'Cover' : page.kind === 'closing' ? 'Closing' : `Page ${i + 1}`}
+                {page.kind === 'cover'
+                  ? 'Cover'
+                  : page.kind === 'chapter'
+                    ? `Chapter · ${page.heading ?? ''}`
+                    : page.kind === 'closing'
+                      ? 'Closing'
+                      : `Page ${i + 1}`}
               </span>
               {page.kind === 'photos' && (
                 <>

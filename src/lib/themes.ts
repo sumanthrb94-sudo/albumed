@@ -1,6 +1,17 @@
+import type { Language } from './aiContract'
 import type { PageSizeSpec, SlotShape } from './types'
 
-export type MotifKind = 'mandala' | 'paisley' | 'marigold' | 'rangoli' | 'diya' | 'kolam' | 'confetti' | 'pearl'
+export type MotifKind =
+  | 'mandala'
+  | 'paisley'
+  | 'marigold'
+  | 'rangoli'
+  | 'diya'
+  | 'kolam'
+  | 'confetti'
+  | 'pearl'
+  | 'pookalam'
+  | 'kasavu'
 
 export interface Palette {
   /** Page background. */
@@ -43,7 +54,155 @@ const DISPLAY = "'Marcellus', Georgia, serif"
 const SANS = "'Mukta', 'Segoe UI', system-ui, sans-serif"
 const DEVA = "'Tiro Devanagari Hindi', 'Noto Sans Devanagari', Georgia, serif"
 
+/** The album prints regional captions in the family's own script. */
+const SCRIPT_FONTS: Record<Language, string> = {
+  english: SERIF,
+  hindi: DEVA,
+  tamil: "'Noto Serif Tamil', 'Latha', Georgia, serif",
+  telugu: "'Noto Serif Telugu', 'Gautami', Georgia, serif",
+  kannada: "'Noto Serif Kannada', 'Tunga', Georgia, serif",
+  malayalam: "'Noto Serif Malayalam', 'Kartika', Georgia, serif",
+}
+
+export const scriptFontFor = (language: Language = 'english'): string =>
+  SCRIPT_FONTS[language] ?? SCRIPT_FONTS.english
+
 export const THEMES: Theme[] = [
+  {
+    id: 'kanjeevaram',
+    name: 'Kanjeevaram Muhurtham',
+    occasion: 'South Indian wedding',
+    blurb: 'Kanjeevaram maroon and temple gold with kolam corners — the Tamil muhurtham album.',
+    script: 'திருமணம்',
+    defaultTitle: 'Our Muhurtham',
+    closingLine: 'With the blessings of both families',
+    closingScript: 'நன்றி',
+    palette: {
+      paper: '#fdf6ea',
+      paperAlt: '#f3e3c8',
+      ink: '#3d1013',
+      inkSoft: '#8d5a45',
+      accent: '#8c1b1f',
+      accentSoft: '#c2565a',
+      gold: '#c69218',
+      cover: '#7c1417',
+      coverAlt: '#43070b',
+      coverInk: '#f8e6bd',
+    },
+    motif: 'kolam',
+    shape: 'arch',
+    titleFont: DISPLAY,
+    bodyFont: SERIF,
+    scriptFont: SCRIPT_FONTS.tamil,
+  },
+  {
+    id: 'pattu-jasmine',
+    name: 'Pattu & Jasmine',
+    occasion: 'South Indian wedding',
+    blurb: 'Jasmine white, leaf green and gold — Telugu pellikuthuru and muhurtham mornings.',
+    script: 'పెళ్లి',
+    defaultTitle: 'Our Wedding',
+    closingLine: 'Thank you for being with us',
+    closingScript: 'ధన్యవాదాలు',
+    palette: {
+      paper: '#fcfbf3',
+      paperAlt: '#eef2e0',
+      ink: '#20331d',
+      inkSoft: '#5f7355',
+      accent: '#2f6b3f',
+      accentSoft: '#76a87f',
+      gold: '#c19b2b',
+      cover: '#275c37',
+      coverAlt: '#12301c',
+      coverInk: '#f6f1d8',
+    },
+    motif: 'kolam',
+    shape: 'round',
+    titleFont: DISPLAY,
+    bodyFont: SERIF,
+    scriptFont: SCRIPT_FONTS.telugu,
+  },
+  {
+    id: 'kasavu',
+    name: 'Kerala Kasavu',
+    occasion: 'South Indian wedding',
+    blurb: 'Off-white kasavu cloth with a woven gold border and pookalam corners.',
+    script: 'വിവാഹം',
+    defaultTitle: 'Our Wedding',
+    closingLine: 'Gratefully, from both our homes',
+    closingScript: 'നന്ദി',
+    palette: {
+      paper: '#fbf9f2',
+      paperAlt: '#f2ecdb',
+      ink: '#2a2a22',
+      inkSoft: '#77705e',
+      accent: '#9a7b21',
+      accentSoft: '#c9ac5e',
+      gold: '#bf9a2c',
+      cover: '#efe6cd',
+      coverAlt: '#d9c79b',
+      coverInk: '#3a3124',
+    },
+    motif: 'kasavu',
+    shape: 'rect',
+    titleFont: DISPLAY,
+    bodyFont: SERIF,
+    scriptFont: SCRIPT_FONTS.malayalam,
+  },
+  {
+    id: 'mysore-silk',
+    name: 'Mysore Silk',
+    occasion: 'South Indian wedding',
+    blurb: 'Royal purple Mysore silk with gold mandalas — Kannada weddings and receptions.',
+    script: 'ಮದುವೆ',
+    defaultTitle: 'Our Wedding',
+    closingLine: 'Thank you for blessing us',
+    closingScript: 'ಧನ್ಯವಾದಗಳು',
+    palette: {
+      paper: '#fbf7fb',
+      paperAlt: '#eee2ee',
+      ink: '#2e1a33',
+      inkSoft: '#75597c',
+      accent: '#5d2270',
+      accentSoft: '#9a63ab',
+      gold: '#c9a227',
+      cover: '#4a1a5c',
+      coverAlt: '#250a2f',
+      coverInk: '#f6e5b9',
+    },
+    motif: 'mandala',
+    shape: 'arch',
+    titleFont: DISPLAY,
+    bodyFont: SERIF,
+    scriptFont: SCRIPT_FONTS.kannada,
+  },
+  {
+    id: 'stage-reception',
+    name: 'Stage Reception',
+    occasion: 'South Indian reception',
+    blurb: 'Charcoal and gold, wide frames and no fuss — built for stage and guest photos.',
+    script: '',
+    defaultTitle: 'Reception',
+    closingLine: 'Thank you for celebrating with us',
+    closingScript: '',
+    palette: {
+      paper: '#f8f7f5',
+      paperAlt: '#e9e6e1',
+      ink: '#1e1d1c',
+      inkSoft: '#6c6862',
+      accent: '#2f2c28',
+      accentSoft: '#8a8279',
+      gold: '#c2a24f',
+      cover: '#191817',
+      coverAlt: '#000000',
+      coverInk: '#f0e5cd',
+    },
+    motif: 'pearl',
+    shape: 'rect',
+    titleFont: DISPLAY,
+    bodyFont: SERIF,
+    scriptFont: SERIF,
+  },
   {
     id: 'vivah-gold',
     name: 'Royal Vivah',

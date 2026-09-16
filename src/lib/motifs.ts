@@ -264,4 +264,54 @@ export function pearlRun(ctx: Ctx, x0: number, x1: number, y: number, s: number,
   ctx.restore()
 }
 
+/** Pookalam: concentric rings of petals, the Kerala floral carpet. */
+export function pookalam(ctx: Ctx, s: number, theme: Theme) {
+  ctx.save()
+  const rings: Array<[number, number, string]> = [
+    [0.95, 20, theme.palette.accentSoft],
+    [0.72, 16, theme.palette.gold],
+    [0.5, 12, theme.palette.accent],
+    [0.3, 8, theme.palette.gold],
+  ]
+  for (const [r, n, color] of rings) {
+    ctx.fillStyle = color
+    ctx.globalAlpha = 0.5
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2
+      ctx.beginPath()
+      ctx.ellipse(Math.cos(a) * s * r, Math.sin(a) * s * r, s * 0.11, s * 0.07, a, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+  ctx.globalAlpha = 0.85
+  ctx.fillStyle = theme.palette.gold
+  ctx.beginPath()
+  ctx.arc(0, 0, s * 0.12, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
+/** Kasavu: the woven gold border of a Kerala mundu, drawn as a banded edge. */
+export function kasavuBand(ctx: Ctx, x: number, y: number, w: number, h: number, u: number, theme: Theme) {
+  ctx.save()
+  const band = u * 1.5
+  const g = ctx.createLinearGradient(0, y, 0, y + band)
+  g.addColorStop(0, theme.palette.gold)
+  g.addColorStop(0.5, theme.palette.accentSoft)
+  g.addColorStop(1, theme.palette.gold)
+  for (const top of [y, y + h - band]) {
+    ctx.fillStyle = g
+    ctx.globalAlpha = 0.5
+    ctx.fillRect(x, top, w, band)
+    ctx.globalAlpha = 0.9
+    ctx.fillStyle = theme.palette.gold
+    ctx.fillRect(x, top, w, u * 0.12)
+    ctx.fillRect(x, top + band - u * 0.12, w, u * 0.12)
+    // the fine weave lines
+    ctx.globalAlpha = 0.35
+    for (let i = x; i < x + w; i += u * 0.55) ctx.fillRect(i, top + u * 0.3, u * 0.1, band - u * 0.6)
+  }
+  ctx.restore()
+}
+
 export const motifName = (m: MotifKind): string => m

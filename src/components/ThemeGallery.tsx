@@ -42,7 +42,7 @@ function ThemeSwatch({ theme, project, photos }: { theme: Theme; project: Projec
         quality: 'thumb',
       })
     draw()
-    Promise.all([ensureFonts(), preloadPage(page, previewCache, 'thumb')]).then(() => alive && draw())
+    Promise.all([ensureFonts(project.language), preloadPage(page, previewCache, 'thumb')]).then(() => alive && draw())
     return () => {
       alive = false
     }

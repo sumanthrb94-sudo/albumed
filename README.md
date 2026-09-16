@@ -1,14 +1,19 @@
-# Albumed — Indian album builder
+# Albumed
 
-Turn the raw photos on a phone into a print-ready Indian wedding or celebration album.
+**An AI album editor for Indian weddings.** Upload the raw take from a phone, and the assistant
+looks at every frame: it knows a *muhurtham* from an *oonjal*, culls the soft and blinked shots,
+writes captions in Tamil, Telugu, Kannada, Malayalam or Hindi, lays the album out in chapters that
+follow the real order of the day — and then you keep editing it by just saying what you want.
 
-Upload the shots you took yourself or the ones the photographer sent → review them together and
-finalize the keepers → pick an occasion template → the app lays out the album and exports a
-print-ready PDF.
+> *"Make it look like a Kerala wedding album."*
+> *"Give the thaali moment a full page of its own."*
+> *"Put the reception chapter at the end and drop anything blurry."*
 
-This is the **web version of the app** (an installable PWA). It runs entirely in the browser:
-photos never leave the device, and it works offline once loaded. See
-[Packaging as an APK](#packaging-as-an-apk) for turning it into an Android build.
+Each of those re-edits the actual album and re-flows the pages. Every change is undoable, and the
+result exports as a print-ready PDF.
+
+The photos never leave the device. The only thing that goes to the API is a small thumbnail of each
+photo during the review pass; everything else — layout, rendering, export — happens in the browser.
 
 ---
 
@@ -16,160 +21,205 @@ photos never leave the device, and it works offline once loaded. See
 
 ```bash
 npm install
-npm run dev          # http://localhost:5173
+cp .env.example .env          # add ANTHROPIC_API_KEY to switch the assistant on
+npm run build
+npm start                     # http://localhost:8787
 ```
 
-Other scripts:
+For development, `npm run dev` runs Vite and the API server together with hot reload on both.
 
-| Command | What it does |
-| --- | --- |
-| `npm run build` | Type-check and build to `dist/` |
-| `npm run preview` | Serve the production build |
-| `npm run demo` | **End-to-end demo in a real browser** — see below |
-| `npm run icons` | Regenerate the app icons |
-| `npm run typecheck` | Type-check only |
+**Without an API key the app still works end to end** — uploading, reviewing, all sixteen
+templates, layout and PDF export. Only the assistant is switched off, and the UI says so.
 
-### See it work end to end
+### See the whole thing run
 
-Two ways:
+```bash
+npm run build && npm run demo
+```
 
-1. **In the app** — open it and press **▶ Run the demo album** on the home screen. It creates a
-   project, generates 12 sample photos, approves them, finalizes the selection and drops you on a
-   laid-out album you can export.
-2. **Headless** — `npm run build && npm run demo` drives the whole flow in Chromium
-   (create → upload → review → finalize → switch template → preview → export PDF → reload) and
-   writes screenshots, `album.pdf` and `summary.json` to `demo-output/`. It fails loudly if the
-   PDF page count does not match the preview or if the album does not survive a reload.
+This drives the real product in a real browser against a mock Claude upstream, so it works with no
+API key and no network: create → upload → **AI review** → **AI plan** → **three AI edits** →
+**undo** → PDF export → reload. It asserts as it goes (every photo tagged, chapters produced, the
+template actually changed, the PDF page count matching the preview, the album surviving a reload)
+and writes screenshots, `album.pdf` and `summary.json` to `demo-output/`.
+
+To run the same demo against the real API: `ALBUMED_REAL_AI=1 ANTHROPIC_API_KEY=sk-ant-... npm run demo`.
 
 ---
 
-## The flow
+## What the assistant does
 
-**1 · Add photos.** Gallery picker, camera capture, or drag-and-drop of the folder a photographer
-shared. Each upload is tagged **Photographer** or **Customer** so you can tell later who added
-what. EXIF rotation from phones is baked in on import, and oversized shots are resized to 3000px
-on the long edge with a 640px thumbnail alongside.
+### 1 · Reviews every photo (vision)
 
-**2 · Review & finalize.** Every photo starts as *to review*. Keep it (✓), leave it out (✕), or
-star it as a highlight — stars get the biggest slot on a page, and the first star becomes the
-cover. Tap any photo for the full-size view with captions, notes for the photographer, and
-keyboard shortcuts (`A` approve, `R` reject, `←/→` navigate). Filter by status, by star, or by who
-uploaded it, and apply a decision to everything currently shown.
+One pass over the thumbnails returns, per photo: which ceremony it belongs to, a 0–100 print score,
+a keep-or-drop call, any visible technical problem, a caption in English and in the family's
+language, one line explaining the decision, **and the focal point of the subject** — which the
+layout engine then crops around, so a 3:2 frame in a square slot no longer cuts through someone's
+face.
 
-Nothing is generated until you press **Confirm N photos & generate album** — that is the gate the
-album generation waits on. You can reopen the selection at any time.
+It knows the running order of a South Indian wedding: nischayathartham, pandhakaal, kashi yatra,
+maalai maatral, oonjal, kanyadanam, muhurtham, saptapadi, nalangu, reception, grihapravesham —
+alongside mehendi, haldi and sangeet for North Indian weddings, and the non-wedding occasions.
 
-**3 · Album template.** Twelve occasion styles, each shown as a live-rendered cover:
+Nothing it decides is binding. Every verdict lands in the normal review screen as a suggestion you
+can flip, and "Show what it said" lists its reasoning photo by photo.
 
-| Occasion | Templates |
-| --- | --- |
-| Wedding | Royal Vivah · Marigold Mandap · Dakshin Kalyanam |
-| Haldi / Mehendi / Sangeet | Haldi Sunshine · Mehendi Night · Sangeet Midnight |
-| Engagement / Reception | Sagai Rose · Ivory Minimal |
-| Baby, birthday, home, festival | Naamkaran Pastel · Birthday Confetti · Griha Pravesh · Diwali Diya |
+### 2 · Plans the album
 
-Each template is a palette, a typeface pairing, a frame shape (temple arch, rounded, circle) and a
-motif painted around every page — mandala corners, paisley vines, a marigold toran, rangoli and
-kolam corners, diyas, confetti or pearls. Page size (8″ or 12″ square, A4 either way, 10×8, or a
-9:16 phone story), photo density, cover, closing page, captions and page numbers are all options.
+From the kept photos it picks the template, the cover, the title, and groups everything into
+chapters in the order the day actually happened — each with a title in English and in the regional
+script, and a line printed under it. Chapters become divider pages in the album.
 
-**4 · Album.** Every page rendered exactly as it will print, with per-page layout re-shuffle and
-reordering. Export the whole thing as a PDF at 150 / 200 / 300 dpi, or save a single page as a JPG.
-On a phone the export goes through the native share sheet.
+### 3 · Edits the album from plain instructions
 
----
+The chat on the album screen turns a request into a small set of validated operations —
+`set_theme`, `feature_photos`, `drop_photos`, `reorder_chapters`, `set_captions`, `set_language`,
+`regenerate` and a few more. The model proposes; **the client validates every id against what
+actually exists** before anything is applied, reports what changed, says what it refused, and keeps
+an undo stack.
 
-## Handing the album between photographer and customer
-
-Everything lives on the device, so a project moves as a file (`*.albumed.json`):
-
-- **Send light copy for review** — thumbnails only, small enough to send over chat. The customer
-  imports it, approves photos on their own phone, and exports it back.
-- **Merge decisions back in** — reads a returned file and applies its approve/reject/star/caption
-  decisions to your full-resolution copy, matching photos by name and size.
-- **Export full project** — everything at full resolution, for moving to another device or backup.
+That validation layer is the point: a hallucinated photo id or an invented template name is
+rejected rather than applied, so the worst case of a bad model response is "nothing happened".
 
 ---
 
-## How the album is generated
+## The South Indian templates
 
-`src/lib/layout.ts` walks the approved photos in order and chunks them into pages using a rhythm
-that depends on the chosen density (airy `1–3`, balanced `1–4`, story `3–6`). For each chunk it
-scores every template of that size against the photos' orientations and the page's aspect ratio,
-penalises repeating the previous page's template, and picks the winner. Photos are then assigned to
-slots largest-first, so a starred photo lands in the hero slot and portraits fall into upright
-frames. A seeded PRNG drives the randomness, so **Re-shuffle layout** gives a different album and
-the same seed always reproduces the same one.
+| Template | Occasion | Look |
+| --- | --- | --- |
+| **Kanjeevaram Muhurtham** | Tamil wedding | Kanjeevaram maroon, temple gold, kolam corners, arched frames |
+| **Pattu & Jasmine** | Telugu wedding | Jasmine white, leaf green and gold |
+| **Kerala Kasavu** | Malayali wedding | Off-white kasavu cloth with a woven gold border and pookalam corners |
+| **Mysore Silk** | Kannada wedding | Royal purple and gold mandalas |
+| **Stage Reception** | Reception | Charcoal and gold, wide frames, no fuss |
+| **Dakshin Kalyanam** | South Indian wedding | Emerald and gold with kolam |
 
-`src/lib/render.ts` paints a page onto a canvas. The preview and the PDF call the exact same
-painter — only the pixel size differs — so the preview is genuinely what you get.
+Plus ten more for North Indian weddings (Royal Vivah, Marigold Mandap), the pre-wedding days
+(Haldi Sunshine, Mehendi Night, Sangeet Midnight), engagements and receptions (Sagai Rose, Ivory
+Minimal), and the rest of family life (Naamkaran Pastel, Birthday Confetti, Griha Pravesh,
+Diwali Diya).
+
+Every template is a palette, a type pairing, a frame shape (temple arch, rounded, circle) and a
+motif painted on canvas around each page — mandala corners, paisley vines, a marigold toran,
+rangoli and kolam corners, diyas, pookalam, a kasavu weave. Nothing is a bitmap, so it stays sharp
+at 300 dpi.
+
+Captions and chapter titles print in **Tamil, Telugu, Kannada, Malayalam, Hindi or English**, in
+their own script, using self-hosted Noto Serif faces.
 
 ---
 
-## Where things live
+## The rest of the flow
+
+**Add photos** — gallery picker, camera capture, or drag-and-drop of the folder a photographer
+shared. Each upload is tagged Photographer or Customer. EXIF rotation from phones is baked in on
+import; originals are capped at 3000px with a 640px thumbnail alongside.
+
+**Review & finalize** — keep, drop, star, caption, and leave a note for the photographer. Filter by
+status, star, uploader, or what the assistant said. Nothing is generated until you confirm the
+selection — that is the gate, whether you curate by hand or let the assistant do it.
+
+**Album** — every page rendered exactly as it prints, per-page layout re-shuffle and reorder, PDF
+export at 150 / 200 / 300 dpi, single pages as JPG, and the native share sheet on a phone.
+
+**Handover** — a project moves between photographer and customer as an `*.albumed.json` file: a
+thumbnails-only copy small enough to send over chat, and a *merge decisions back in* import that
+applies the customer's approvals to your full-resolution copy.
+
+---
+
+## How it fits together
 
 ```
 src/
   lib/
-    types.ts      data model
-    db.ts         IndexedDB (projects, photo metadata, blobs, albums)
-    images.ts     decode + EXIF rotation, thumbnails, bitmap cache, sample photos
-    themes.ts     the 12 occasion templates and the page sizes
-    layout.ts     page templates + the album generator
-    motifs.ts     canvas painters for mandala, paisley, marigold, rangoli, kolam, diya…
-    render.ts     the page painter shared by preview and export
-    pdf.ts        PDF / JPG export, share sheet
-    bundle.ts     project file export, import, decision merge
-  components/     PhotoThumb, PageCanvas, ThemeGallery
-  screens/        Home, Upload, Review, Design, AlbumView
-  store.tsx       app state
+    aiContract.ts   Zod schemas shared by browser and server — the AI's output contract
+    ai.ts           browser client for /api/ai/*  (batching, thumbnail encoding)
+    applyOps.ts     validates and applies the assistant's edits  (pure, unit-tested)
+    layout.ts       19 page templates + the chapter-aware album generator
+    render.ts       the canvas painter shared by the preview and the PDF
+    motifs.ts       mandala, paisley, marigold, rangoli, kolam, diya, pookalam, kasavu
+    themes.ts       the 16 templates, page sizes, per-language script fonts
+    db.ts           IndexedDB: projects, photo metadata, blobs, albums
+    images.ts       decode + EXIF rotation, thumbnails, bitmap cache, sample photos
+    pdf.ts          PDF / JPG export, share sheet
+    bundle.ts       project file export, import, decision merge
+  components/       PageCanvas, ThemeGallery, Assistant, AlbumChat, ErrorBoundary
+  screens/          Home, Upload, Review, Design, AlbumView
+  store.tsx         app state and the three AI passes
+server/
+  index.ts          HTTP server: static client, /api/health, /api/ai/*
+  claude.ts         every Claude call — structured outputs, error translation
+  prompts.ts        the system prompts
+tests/
+  applyOps.test.ts  the edit applier, including malformed model output
+  layout.test.ts    template geometry, chapters, featured pages, determinism
+  api.test.ts       the server end to end against a mock upstream
+  mock-anthropic.mjs
 scripts/
-  demo-e2e.mjs    the end-to-end demo driver
-  make-icons.mjs  generates the app icons
-  fetch-fonts.mjs re-downloads the self-hosted fonts
+  demo-e2e.mjs      the browser demo driver
+  fetch-fonts.mjs   re-downloads the self-hosted fonts
+  make-icons.mjs    generates the app icons (no image dependencies)
 ```
 
-### Storage
+**The preview and the PDF call the same painter** — only the pixel size differs — so the preview is
+genuinely what prints.
 
-Photos, projects and generated albums are kept in **IndexedDB** on the device — originals and
-thumbnails as blobs. Nothing is uploaded anywhere; there is no server and no account. That also
-means clearing site data deletes the albums, so export a project file for anything you want to
-keep. Browsers cap how much a site may store (usually a few GB); a very large shoot can hit that
-limit, which is another reason imports are resized to 3000px.
+**Layout** chunks the photos into pages using a rhythm set by the chosen density, scores every
+template of that size against the photos' orientations and the page aspect, penalises repeating the
+previous page, and gives starred photos the hero slot. A seeded PRNG drives it, so *Re-shuffle*
+gives a different album and the same seed always reproduces the same one.
 
 ---
 
-## Packaging as an APK
-
-The app is already a PWA — on Android, Chrome's **Install app** prompt puts it on the home screen
-with its own icon and no browser chrome. For a real `.apk`/`.aab` on the Play Store, wrap this
-build:
+## Running it in production
 
 ```bash
-# Option A — Trusted Web Activity (thin wrapper around the hosted PWA)
-npx @bubblewrap/cli init --manifest https://your-host/manifest.webmanifest
-npx @bubblewrap/cli build
-
-# Option B — Capacitor (bundles dist/ into the app, no hosting needed)
-npm install @capacitor/core @capacitor/android
-npx cap init Albumed app.albumed --web-dir=dist
-npx cap add android && npm run build && npx cap sync && npx cap open android
+docker build -t albumed .
+docker run -p 8787:8787 -e ANTHROPIC_API_KEY=sk-ant-... albumed
 ```
 
-Capacitor is the better fit here since everything is offline already; add
-`@capacitor/camera` and `@capacitor/filesystem` if you want native camera and save-to-gallery
-instead of the web file input and share sheet.
+The server serves the built client and proxies the assistant. It keeps the API key server-side,
+rate-limits per client per route, caps request bodies, sends a strict CSP and the usual security
+headers, logs one JSON line per request, and shuts down cleanly on SIGTERM. `/api/health` reports
+whether the assistant is configured and is wired to the container health check.
+
+Configuration is all environment variables — see `.env.example`.
+
+### Cost
+
+The review pass sends one 512px thumbnail per photo, batched (six per request by default, via
+`ALBUMED_CURATE_BATCH`). Planning and editing are text-only. A 200-photo shoot is roughly 34 review
+requests; the system prompt is cached across them. Lower `ALBUMED_MODEL` to `claude-sonnet-5` if you
+want to trade some judgement for cost.
 
 ---
 
-## Notes and limits
+## Tests
 
-- Fonts (Cormorant Garamond, Marcellus, Mukta, Tiro Devanagari Hindi — all SIL OFL) are
-  self-hosted in `public/fonts` so pages render identically offline. Re-fetch with
-  `node scripts/fetch-fonts.mjs`.
-- HEIC from iPhones decodes only where the browser supports it; Safari and recent Chrome on
-  Android do. Elsewhere, ask for JPEGs.
-- The album is page-by-page, not double-page spreads. Print shops that want spreads can impose the
-  PDF, or pick the 12″ square lay-flat size.
-- The sample photos are generated procedurally — they exist so the whole flow can be demonstrated
-  without uploading anything real.
+```bash
+npm test     # 31 unit + integration tests, no API key needed
+npm run demo # the full browser demo, also no API key needed
+```
+
+`tests/mock-anthropic.mjs` stands in for `api.anthropic.com` and derives its replies from the
+request, so ids are real and the assertions mean something. The server still builds every request
+with the Anthropic SDK and validates every reply against the same Zod schemas the browser uses.
+
+---
+
+## Limits worth knowing
+
+- **Storage is the device.** Clearing site data deletes the albums. Export a project file for
+  anything you want to keep. Browsers cap site storage at a few GB, which is why imports are
+  resized to 3000px.
+- **HEIC** from iPhones decodes only where the browser supports it (Safari, recent Chrome on
+  Android). Elsewhere, ask for JPEGs.
+- **The assistant is a first draft, not an authority.** It has been given the vocabulary of a South
+  Indian wedding, but it is guessing at which ceremony a photo belongs to from the photo alone.
+  Check its chapter names before you print — especially for regional customs it may not have seen.
+- **Pages, not spreads.** Print shops that want double-page spreads can impose the PDF, or use the
+  12″ square lay-flat size.
+- **The sample photos are generated procedurally** so the whole flow can be demonstrated without
+  uploading anything real. They are coloured shapes, not photographs — the assistant's verdicts on
+  them in the offline demo come from the mock, not from Claude.

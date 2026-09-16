@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../store'
 import { PhotoThumb } from '../components/PhotoThumb'
 import { fullUrl } from '../lib/images'
+import { CuratePanel, PhotoVerdictChips } from '../components/Assistant'
+import { CEREMONY_LABELS } from '../lib/aiContract'
 import type { Photo, PhotoStatus } from '../lib/types'
 
 type Filter = 'all' | PhotoStatus | 'starred' | 'photographer' | 'customer'
@@ -91,6 +93,12 @@ function Lightbox({
           Delete
         </button>
       </div>
+      {photo.aiReason && (
+        <div className="bar" style={{ fontSize: 13, opacity: 0.85 }}>
+          <span className="tag">{photo.ceremony ? CEREMONY_LABELS[photo.ceremony] : 'Assistant'}</span>
+          <span>{photo.aiReason}</span>
+        </div>
+      )}
       <div className="bar">
         <input
           type="text"
@@ -142,6 +150,8 @@ export function Review({ nav }: { nav: (hash: string) => void }) {
 
   return (
     <div className="wrap">
+      <CuratePanel onPlanned={() => nav(`#/p/${project.id}/album`)} />
+
       <div className="card">
         <h2>Review &amp; finalize</h2>
         <p className="hint">
@@ -206,6 +216,7 @@ export function Review({ nav }: { nav: (hash: string) => void }) {
                   </div>
                   <span className="badge">{p.source === 'customer' ? 'Customer' : 'Photographer'}</span>
                   {p.starred && <span className="star">★</span>}
+                  <PhotoVerdictChips photo={p} />
                   <div className="acts">
                     <button
                       className={`yes${p.status === 'approved' ? ' on' : ''}`}
