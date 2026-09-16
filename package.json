@@ -6,16 +6,17 @@
   "description": "Albumed — Indian photo album builder. Upload raw phone photos, review & finalize, generate a wedding/celebration album PDF.",
   "scripts": {
     "dev": "concurrently -k -n web,api -c magenta,cyan \"vite\" \"npm:dev:api\"",
-    "build": "tsc -b && vite build && npm run build:server",
+    "build": "npm run build:web && npm run build:server",
     "preview": "vite preview --port 4173",
-    "typecheck": "tsc -b --force",
+    "typecheck": "tsc -b --force && tsc -p tsconfig.server.json",
     "icons": "node scripts/make-icons.mjs",
     "demo": "node scripts/demo-e2e.mjs",
     "dev:web": "vite",
     "dev:api": "tsx watch server/index.ts",
-    "build:server": "tsc -p tsconfig.server.json",
-    "start": "node dist-server/server/index.js",
-    "test": "node --import tsx --test tests/*.test.ts"
+    "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=dist-server/index.mjs --log-level=warning",
+    "start": "node dist-server/index.mjs",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "build:web": "tsc -b && vite build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",
@@ -28,11 +29,16 @@
     "@types/node": "^22.20.3",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@vercel/node": "^13.0.1",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^10.0.5",
+    "esbuild": "^0.28.2",
     "playwright": "^1.63.0",
     "tsx": "^4.23.13",
     "typescript": "^5.6.3",
     "vite": "^5.4.11"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

@@ -1,6 +1,6 @@
 /* System prompts for the three AI passes. Kept in one file so they can be
    reviewed and tuned without touching transport code. */
-import { CEREMONY_LABELS, LANGUAGE_LABELS, type Language } from '../src/lib/aiContract.js'
+import { CEREMONY_LABELS, LANGUAGE_LABELS, type Language } from '../src/lib/aiContract'
 
 const CEREMONY_GLOSSARY = Object.entries(CEREMONY_LABELS)
   .map(([id, label]) => `- ${id}: ${label}`)

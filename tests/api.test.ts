@@ -23,7 +23,7 @@ const tinyJpeg =
 
 before(async () => {
   mock = await startMockAnthropic(MOCK_PORT)
-  server = spawn('node', ['dist-server/server/index.js'], {
+  server = spawn('node', ['dist-server/index.mjs'], {
     env: {
       ...process.env,
       PORT: String(PORT),

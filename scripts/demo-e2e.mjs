@@ -21,7 +21,7 @@ const MOCK_PORT = 4611
 const REAL_AI = process.env.ALBUMED_REAL_AI === '1' && Boolean(process.env.ANTHROPIC_API_KEY)
 const BASE = `http://localhost:${PORT}`
 
-if (!existsSync(join(ROOT, 'dist', 'index.html')) || !existsSync(join(ROOT, 'dist-server', 'server', 'index.js'))) {
+if (!existsSync(join(ROOT, 'dist', 'index.html')) || !existsSync(join(ROOT, 'dist-server', 'index.mjs'))) {
   console.error('Run `npm run build` first.')
   process.exit(1)
 }
@@ -37,7 +37,7 @@ await mkdir(OUT, { recursive: true })
 const mock = REAL_AI ? null : await startMockAnthropic(MOCK_PORT)
 console.log(REAL_AI ? 'using the real Claude API' : `using the mock Claude API on ${mock.url}`)
 
-const server = spawn('node', ['dist-server/server/index.js'], {
+const server = spawn('node', ['dist-server/index.mjs'], {
   cwd: ROOT,
   env: {
     ...process.env,

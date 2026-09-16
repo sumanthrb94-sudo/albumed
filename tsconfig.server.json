@@ -2,19 +2,16 @@
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "types": ["node"],
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "outDir": "dist-server",
-    "rootDir": ".",
-    "noEmit": false,
-    "declaration": false,
-    "sourceMap": true
+    "resolveJsonModule": true,
+    "noEmit": true
   },
-  "include": ["server/**/*.ts", "src/lib/aiContract.ts"]
+  "include": ["server/**/*.ts", "api/**/*.ts", "src/lib/aiContract.ts"]
 }

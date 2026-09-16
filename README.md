@@ -148,13 +148,16 @@ src/
   screens/          Home, Upload, Review, Design, AlbumView
   store.tsx         app state and the three AI passes
 server/
-  index.ts          HTTP server: static client, /api/health, /api/ai/*
+  handlers.ts       the API itself — health, the three AI routes, rate limiting
+  index.ts          standalone Node server (Docker, self-hosting) + static client
   claude.ts         every Claude call — structured outputs, error translation
   prompts.ts        the system prompts
+api/                the same handlers as Vercel serverless functions
 tests/
   applyOps.test.ts  the edit applier, including malformed model output
   layout.test.ts    template geometry, chapters, featured pages, determinism
   api.test.ts       the server end to end against a mock upstream
+  vercel.test.ts    the serverless adapters, invoked the way the platform does
   mock-anthropic.mjs
 scripts/
   demo-e2e.mjs      the browser demo driver
@@ -172,17 +175,40 @@ gives a different album and the same seed always reproduces the same one.
 
 ---
 
-## Running it in production
+## Deploying
+
+The API is written once, in `server/handlers.ts`, and served two ways.
+
+### Vercel
+
+```bash
+npx vercel            # preview
+npx vercel --prod     # production
+```
+
+Set `ANTHROPIC_API_KEY` in **Project → Settings → Environment Variables** (any other variable from
+`.env.example` works there too). `vercel.json` already wires up the build, the SPA rewrite, the CSP
+and cache headers, and gives each AI function a 60-second budget — a vision pass over a batch of
+photos does not fit in the 10-second default. `npx vercel dev` runs the functions and the client
+together locally.
+
+Two things to know about the serverless shape: the rate limiter is per instance, so put a real one
+(KV, Upstash, the platform's) in front if you need a hard quota; and Vercel caps request bodies at
+4.5 MB, which is why the review pass batches photos (`ALBUMED_CURATE_BATCH`, six by default — about
+400 KB a request).
+
+### Docker, or any Node host
 
 ```bash
 docker build -t albumed .
 docker run -p 8787:8787 -e ANTHROPIC_API_KEY=sk-ant-... albumed
 ```
 
-The server serves the built client and proxies the assistant. It keeps the API key server-side,
-rate-limits per client per route, caps request bodies, sends a strict CSP and the usual security
-headers, logs one JSON line per request, and shuts down cleanly on SIGTERM. `/api/health` reports
-whether the assistant is configured and is wired to the container health check.
+Or `npm run build && npm start` on any Node 20+ box. The standalone server serves the built client
+as well as the API: it keeps the key server-side, rate-limits per client per route, caps request
+bodies, sends a strict CSP and the usual security headers, logs one JSON line per request, and
+shuts down cleanly on SIGTERM. `/api/health` reports whether the assistant is configured and is
+wired to the container health check.
 
 Configuration is all environment variables — see `.env.example`.
 
@@ -198,7 +224,7 @@ want to trade some judgement for cost.
 ## Tests
 
 ```bash
-npm test     # 31 unit + integration tests, no API key needed
+npm test     # 39 unit + integration tests, no API key needed
 npm run demo # the full browser demo, also no API key needed
 ```
 
