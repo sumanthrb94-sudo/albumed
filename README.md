@@ -1,9 +1,12 @@
 # Albumed
 
-**An AI album editor for Indian weddings.** Upload the raw take from a phone, and the assistant
-looks at every frame: it knows a *muhurtham* from an *oonjal*, culls the soft and blinked shots,
-writes captions in Tamil, Telugu, Kannada, Malayalam or Hindi, lays the album out in chapters that
-follow the real order of the day — and then you keep editing it by just saying what you want.
+**An AI album editor for Indian weddings.** Built in Rajahmundry, on the Godavari — Telugu weddings
+are home ground, and the templates and ceremony vocabulary reach across the country.
+
+Upload the raw take from a phone, and the assistant looks at every frame: it knows a *jeelakarra
+bellam* from a *maalai maatral*, culls the soft and blinked shots, writes captions in Telugu, Tamil,
+Kannada, Malayalam, Hindi, Bengali, Marathi, Gujarati or Punjabi, lays the album out in chapters
+that follow the real order of the day — and then you keep editing it by just saying what you want.
 
 > *"Make it look like a Kerala wedding album."*
 > *"Give the thaali moment a full page of its own."*
@@ -14,6 +17,12 @@ result exports as a print-ready PDF.
 
 The photos never leave the device. The only thing that goes to the API is a small thumbnail of each
 photo during the review pass; everything else — layout, rendering, export — happens in the browser.
+
+**How it pays for itself: free albums store a compressed copy of every photo.** You get the whole
+product — every template, the assistant, the full layout, a watermarked draft PDF — and the album on
+screen looks right. What you do not get is the photograph. Subscribe and the same album prints at
+the quality it was shot at. The app does not argue this point; it shows you, side by side, what the
+compression took (see *Plans* below).
 
 ---
 
@@ -38,10 +47,15 @@ npm run build && npm run demo
 ```
 
 This drives the real product in a real browser against a mock Claude upstream, so it works with no
-API key and no network: create → upload → **AI review** → **AI plan** → **three AI edits** →
-**undo** → PDF export → reload. It asserts as it goes (every photo tagged, chapters produced, the
-template actually changed, the PDF page count matching the preview, the album surviving a reload)
-and writes screenshots, `album.pdf` and `summary.json` to `demo-output/`.
+API key and no network: create on the free plan → upload → **see the compression comparison** →
+**AI review** → **AI plan** → **three AI edits** → **undo** → **free watermarked draft** → hit the
+paywall → **subscribe** → **re-import originals** → 300 dpi export → reload.
+
+It asserts as it goes: every photo tagged, chapters produced, the template actually changed, press
+resolutions locked on free and unlocked after subscribing, the originals replacing the compressed
+copies, the paid PDF carrying at least 1.5× the data of the free draft, the page count matching the
+preview, and the album surviving a reload. Screenshots, both PDFs and `summary.json` land in
+`demo-output/`.
 
 To run the same demo against the real API: `ALBUMED_REAL_AI=1 ANTHROPIC_API_KEY=sk-ant-... npm run demo`.
 
@@ -57,9 +71,13 @@ language, one line explaining the decision, **and the focal point of the subject
 layout engine then crops around, so a 3:2 frame in a square slot no longer cuts through someone's
 face.
 
-It knows the running order of a South Indian wedding: nischayathartham, pandhakaal, kashi yatra,
-maalai maatral, oonjal, kanyadanam, muhurtham, saptapadi, nalangu, reception, grihapravesham —
-alongside mehendi, haldi and sangeet for North Indian weddings, and the non-wedding occasions.
+It knows the running order of a Telugu wedding — nischitartham, pellikuthuru, snathakam, kashi
+yatra, madhuparkam, jeelakarra bellam, mangalsutra dharana, talambralu, kanyadanam, saptapadi,
+appaginthalu — and the equivalents elsewhere: maalai maatral and oonjal in Tamil Nadu, antarpat in
+Maharashtra, subho drishti and sindoor daan in Bengal, hastamelap in Gujarat, anand karaj in Punjab,
+the baraat and pheras in the north. Forty ceremonies in all, plus receptions, housewarmings, naming
+days and birthdays. It is told to read the photos in front of it rather than assume — a Bengali
+wedding does not get Telugu chapter names.
 
 Nothing it decides is binding. Every verdict lands in the normal review screen as a suggestion you
 can flip, and "Show what it said" lists its reasoning photo by photo.
@@ -83,29 +101,61 @@ rejected rather than applied, so the worst case of a bad model response is "noth
 
 ---
 
-## The South Indian templates
+## Plans
 
-| Template | Occasion | Look |
-| --- | --- | --- |
-| **Kanjeevaram Muhurtham** | Tamil wedding | Kanjeevaram maroon, temple gold, kolam corners, arched frames |
-| **Pattu & Jasmine** | Telugu wedding | Jasmine white, leaf green and gold |
-| **Kerala Kasavu** | Malayali wedding | Off-white kasavu cloth with a woven gold border and pookalam corners |
-| **Mysore Silk** | Kannada wedding | Royal purple and gold mandalas |
-| **Stage Reception** | Reception | Charcoal and gold, wide frames, no fuss |
-| **Dakshin Kalyanam** | South Indian wedding | Emerald and gold with kolam |
+| | Free | Plus — ₹249/month | Studio — ₹5,999/year |
+| --- | --- | --- | --- |
+| Photos stored at | 1280px, heavily compressed | 4000px, print grade | 6000px, print grade |
+| Export | 150 dpi, watermarked | 300 dpi, clean | 600 dpi, clean |
+| Photos per album | 60 | 600 | 3000 |
+| Assistant reviews | first 24 photos | every photo | every photo |
+| Templates, layout, chapters, AI editing | all of it | all of it | all of it |
 
-Plus ten more for North Indian weddings (Royal Vivah, Marigold Mandap), the pre-wedding days
-(Haldi Sunshine, Mehendi Night, Sangeet Midnight), engagements and receptions (Sagai Rose, Ivory
-Minimal), and the rest of family life (Naamkaran Pastel, Birthday Confetti, Griha Pravesh,
-Diwali Diya).
+Everything except the photograph itself is free. That is deliberate: someone should be able to build
+the album, see the assistant sort their pellikuthuru from their reception, watch the pages lay
+themselves out, and only then decide whether it is worth paying to print properly.
+
+Two things keep it honest:
+
+- **You can see what you are losing.** On import, a free album keeps one extra thing: a 560px crop
+  of the photo *at its original resolution*, next to the same crop as it survives in the stored copy.
+  The comparison slider puts them one over the other at the same size. Zari thread, embroidery and
+  jewellery are where the difference shows.
+- **Upgrading is not too late.** The originals were never deleted — they are still in the phone's
+  gallery. Subscribe, pick the same files again, and they replace the compressed copies in place.
+  The album, its chapters, the captions and every edit stay exactly as they were.
+
+Pricing is indicative while this is being designed, and payments are not wired up: `checkoutFor()`
+in `src/lib/plan.ts` builds the order a provider would be handed, and choosing a plan switches it on
+locally so the difference can be seen. Every limit lives in that one file.
+
+## Templates, region by region
+
+| Region | Templates |
+| --- | --- |
+| **Andhra & Telangana** | Godavari Pellikuthuru, Kalyana Mandapam, Pattu & Jasmine |
+| Tamil Nadu | Kanjeevaram Muhurtham |
+| Karnataka | Mysore Silk |
+| Kerala | Kerala Kasavu |
+| Bengal | Lal Paar |
+| Maharashtra | Paithani Peacock |
+| Punjab | Phulkari |
+| Gujarat & Rajasthan | Bandhani |
+| North India | Royal Vivah, Marigold Mandap |
+| Pan-India | Haldi Sunshine, Mehendi Night, Sangeet Midnight, Sagai Rose, Ivory Minimal, Stage Reception, Naamkaran Pastel, Birthday Confetti, Griha Pravesh, Diwali Diya |
+
+Twenty-three in all. Every one is a palette, a type pairing, a frame shape (temple arch, rounded,
+circle) and a motif painted on canvas around each page — muggu and kolam corners, mandalas, paisley
+vines, a marigold toran, rangoli, diyas, pookalam, a kasavu weave, Bengali alpona, a Paithani
+peacock, phulkari stitching, bandhani dots. Nothing is a bitmap, so it stays sharp at 600 dpi.
 
 Every template is a palette, a type pairing, a frame shape (temple arch, rounded, circle) and a
 motif painted on canvas around each page — mandala corners, paisley vines, a marigold toran,
 rangoli and kolam corners, diyas, pookalam, a kasavu weave. Nothing is a bitmap, so it stays sharp
 at 300 dpi.
 
-Captions and chapter titles print in **Tamil, Telugu, Kannada, Malayalam, Hindi or English**, in
-their own script, using self-hosted Noto Serif faces.
+Captions and chapter titles print in **Telugu, Tamil, Kannada, Malayalam, Hindi, Bengali, Marathi,
+Gujarati, Punjabi or English**, in their own script, using self-hosted Noto Serif faces.
 
 ---
 
@@ -133,6 +183,8 @@ applies the customer's approvals to your full-resolution copy.
 ```
 src/
   lib/
+    plan.ts         the plans and every limit the product enforces
+    reimport.ts     matching re-picked originals to the photos already in an album
     aiContract.ts   Zod schemas shared by browser and server — the AI's output contract
     ai.ts           browser client for /api/ai/*  (batching, thumbnail encoding)
     applyOps.ts     validates and applies the assistant's edits  (pure, unit-tested)
@@ -144,7 +196,8 @@ src/
     images.ts       decode + EXIF rotation, thumbnails, bitmap cache, sample photos
     pdf.ts          PDF / JPG export, share sheet
     bundle.ts       project file export, import, decision merge
-  components/       PageCanvas, ThemeGallery, Assistant, AlbumChat, ErrorBoundary
+  components/       PageCanvas, ThemeGallery, Assistant, AlbumChat, Paywall,
+                    QualityCompare, ErrorBoundary
   screens/          Home, Upload, Review, Design, AlbumView
   store.tsx         app state and the three AI passes
 server/
@@ -156,6 +209,7 @@ api/                the same handlers as Vercel serverless functions
 tests/
   applyOps.test.ts  the edit applier, including malformed model output
   layout.test.ts    template geometry, chapters, featured pages, determinism
+  plan.test.ts      plan limits never regress, and re-import matching
   api.test.ts       the server end to end against a mock upstream
   vercel.test.ts    the serverless adapters, invoked the way the platform does
   mock-anthropic.mjs
@@ -224,7 +278,7 @@ want to trade some judgement for cost.
 ## Tests
 
 ```bash
-npm test     # 39 unit + integration tests, no API key needed
+npm test     # 51 unit + integration tests, no API key needed
 npm run demo # the full browser demo, also no API key needed
 ```
 
@@ -237,8 +291,8 @@ with the Anthropic SDK and validates every reply against the same Zod schemas th
 ## Limits worth knowing
 
 - **Storage is the device.** Clearing site data deletes the albums. Export a project file for
-  anything you want to keep. Browsers cap site storage at a few GB, which is why imports are
-  resized to 3000px.
+  anything you want to keep. Browsers cap site storage at a few GB, which is the practical reason
+  free albums are compressed as well as the commercial one.
 - **HEIC** from iPhones decodes only where the browser supports it (Safari, recent Chrome on
   Android). Elsewhere, ask for JPEGs.
 - **The assistant is a first draft, not an authority.** It has been given the vocabulary of a South
@@ -247,5 +301,6 @@ with the Anthropic SDK and validates every reply against the same Zod schemas th
 - **Pages, not spreads.** Print shops that want double-page spreads can impose the PDF, or use the
   12″ square lay-flat size.
 - **The sample photos are generated procedurally** so the whole flow can be demonstrated without
-  uploading anything real. They are coloured shapes, not photographs — the assistant's verdicts on
-  them in the offline demo come from the mock, not from Claude.
+  uploading anything real. They carry deliberately fine detail — radial zari lines, a woven border,
+  small type — so the quality comparison shows something true, but they are drawn shapes, not
+  photographs. The assistant's verdicts on them in the offline demo come from the mock, not Claude.

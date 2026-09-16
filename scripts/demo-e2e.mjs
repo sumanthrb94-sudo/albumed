@@ -102,29 +102,42 @@ try {
   await page.waitForSelector('text=Turn phone photos into a real album')
   await shot('01-home')
 
-  step(2, 'Create a South Indian wedding album')
+  step(2, 'Create a Telugu wedding album (free plan)')
   await page.click('text=+ New album')
-  await page.fill('input[placeholder="Our Wedding"]', 'Our Muhurtham')
-  await page.fill('input[placeholder="Priya & Arjun"]', 'Priya Sharma  ·  Arjun Mehta')
+  await page.fill('input[placeholder="Maa Pelli"]', 'Maa Pelli')
+  await page.fill('input[placeholder="Sireesha & Karthik"]', 'Sireesha  ·  Karthik')
   await page.fill('input[placeholder="14 February 2026"]', '14 February 2026')
-  await page.fill('input[placeholder="Umaid Bhawan, Jodhpur"]', 'Sri Krishna Gana Sabha, Chennai')
-  await page.selectOption('select', 'kanjeevaram')
+  await page.fill('input[placeholder="Kalyana Mandapam, Rajahmundry"]', 'Kalyana Mandapam, Rajahmundry')
+  await page.selectOption('select', 'godavari')
   await page.click('text=Create album')
   await page.waitForSelector('text=Add photos')
+  const planChip = await page.locator('.plan-chip').innerText()
+  console.log(`  ✓ starting on the ${planChip} plan`)
+  if (planChip !== 'Free') fail('a new visitor should start on Free')
 
-  step(3, 'Add the raw take from the phone')
+  step(3, 'Add the raw take — free albums store a compressed copy')
+  await page.waitForSelector('text=Free albums store a compressed copy')
   await page.click('text=Add sample photos')
   await page.waitForSelector('text=Just added', { timeout: 60000 })
+  await page.waitForSelector('.compare', { timeout: 30000 })
+  const storedLabel = await page.locator('.compare-label.right').innerText()
+  const originalLabel = await page.locator('.compare-label.left').innerText()
+  console.log(`  ✓ quality comparison rendered — ${originalLabel} vs ${storedLabel}`)
+  if (!/1280|\d+ × \d+/.test(storedLabel)) fail('the stored size was not shown')
+  await page.locator('.compare').scrollIntoViewIfNeeded()
+  await page.waitForTimeout(400)
+  await shot('02-compression-compare')
+
   await page.click('text=Next: review & finalize →')
   await page.waitForSelector('text=Album assistant')
-  await shot('02-review-before-ai')
+  await shot('03-review-before-ai')
 
   step(4, 'Assistant reviews every photo (vision pass)')
   await page.fill(
     'input[placeholder="Tamil brahmin muhurtham, then a reception in Chennai"]',
-    'Tamil brahmin muhurtham at a sabha, followed by an evening reception',
+    'A Godavari-side Telugu wedding — pellikuthuru, muhurtham and an evening reception',
   )
-  await page.selectOption('.ai-card select', 'tamil')
+  await page.selectOption('.ai-card select', 'telugu')
   await page.click('button:has-text("Review my photos")')
   await page.waitForSelector('.tile .verdict', { timeout: 180000 })
   await page.waitForTimeout(1500)
@@ -134,11 +147,11 @@ try {
   if (tagged < 6) fail(`expected the assistant to tag most photos, got ${tagged}`)
   summary.tagged = tagged
   summary.approvedByAi = approved
-  await shot('03-review-after-ai')
+  await shot('04-review-after-ai')
 
   await page.click('button:has-text("Show what it said")')
   await page.waitForTimeout(500)
-  await shot('04-ai-reasons')
+  await shot('05-ai-reasons')
 
   step(5, 'Assistant plans the running order and generates the album')
   await page.click('button:has-text("Plan the album")')
@@ -150,7 +163,7 @@ try {
   if (chapterPages < 1) fail('the assistant did not produce any chapters')
   summary.pagesAfterPlan = pagesAfterPlan
   summary.chapters = chapterPages
-  await shot('05-album-with-chat')
+  await shot('06-album-with-chat')
 
   step(6, 'Edit the album by asking for changes')
   const themeBefore = await page.locator('.card .hint').first().innerText()
@@ -158,15 +171,15 @@ try {
   const themeAfter = await page.locator('.card .hint').first().innerText()
   console.log(`  ✓ template: ${themeBefore.split('·')[0].trim()} → ${themeAfter.split('·')[0].trim()}`)
   if (themeBefore === themeAfter) fail('asking for a Kerala album did not change the template')
-  await shot('06-chat-theme-changed')
-  await shotPage(0, '07-page-cover-kasavu')
+  await shot('07-chat-theme-changed')
+  await shotPage(0, '08-page-cover-kasavu')
 
   await chat('Give the thaali moment a full page of its own', 'page of its own')
   await chat('Drop anything blurry or with eyes closed', 'out')
   const pagesAfterEdits = await page.locator('.page-item').count()
   console.log(`  ✓ album re-laid out: ${pagesAfterEdits} pages`)
   summary.pagesAfterEdits = pagesAfterEdits
-  await shot('08-chat-history')
+  await shot('09-chat-history')
 
   step(7, 'Undo the last change')
   await page.click('.ai-card button:has-text("Undo")')
@@ -176,41 +189,122 @@ try {
   if (pagesAfterUndo === 0) fail('undo emptied the album')
   summary.pagesAfterUndo = pagesAfterUndo
 
-  step(8, 'Capture the printed pages')
+  step(8, 'Free export is a watermarked draft, capped in resolution')
+  const [freeDownload] = await Promise.all([
+    page.waitForEvent('download', { timeout: 240000 }),
+    page.click('button:has-text("Download album PDF")'),
+  ])
+  const freePath = join(OUT, 'album-free-draft.pdf')
+  await freeDownload.saveAs(freePath)
+  const freePdf = await readFile(freePath)
+  if (freePdf.subarray(0, 5).toString() !== '%PDF-') fail('the free export is not a PDF')
+  console.log(`  ✓ free draft: ${(freePdf.length / 1048576).toFixed(2)} MB at 150 dpi, watermarked`)
+  summary.freePdfBytes = freePdf.length
+
+  const dpiOptions = await page.locator('select:below(:text("Print quality"))').first().innerText()
+  if (!/🔒/.test(dpiOptions)) fail('press resolutions should be locked on Free')
+  console.log('  ✓ 300 and 600 dpi are locked')
+  await page.selectOption('.card select:has(option:has-text("dpi"))', '300').catch(() => {})
+  await page.waitForSelector('.paywall', { timeout: 15000 })
+  console.log('  ✓ asking for 300 dpi opens the paywall')
+  await shot('10-paywall')
+
+  step(9, 'Subscribe, and the same album unlocks')
+  await page.click('.plan.featured button:has-text("Subscribe")')
+  await page.waitForSelector('.paywall', { state: 'detached', timeout: 20000 })
+  const paidChip = await page.locator('.plan-chip').innerText()
+  console.log(`  ✓ now on ${paidChip}`)
+  if (!/Plus/.test(paidChip)) fail('subscribing did not change the plan')
+  await page.waitForTimeout(800)
+  const hasReimport = await page.locator('text=Re-import my originals').count()
+  if (!hasReimport) fail('a paid album with compressed photos should offer a re-import')
+  console.log('  ✓ the album offers to swap in the original files')
+  await shot('11-after-subscribe')
+
+  step('9b', 'Re-import the originals, the way someone would after subscribing')
+  // The originals only exist in the phone's gallery, so the demo makes stand-ins
+  // at full size with the same file names, and hands them to the real input.
+  const names = ['sample-01-pellikuthuru.jpg', 'sample-02-snathakam.jpg', 'sample-03-kashi yatra.jpg']
+  const originals = []
+  for (const name of names) {
+    const dataUrl = await page.evaluate(async () => {
+      const c = document.createElement('canvas')
+      c.width = 3000
+      c.height = 2250
+      const ctx = c.getContext('2d')
+      const g = ctx.createLinearGradient(0, 0, c.width, c.height)
+      g.addColorStop(0, '#e8c24a')
+      g.addColorStop(1, '#8c5a12')
+      ctx.fillStyle = g
+      ctx.fillRect(0, 0, c.width, c.height)
+      for (let i = 0; i < 900; i++) {
+        const a = (i / 900) * Math.PI * 2
+        ctx.strokeStyle = i % 2 ? 'rgba(255,240,190,0.9)' : 'rgba(90,40,20,0.7)'
+        ctx.beginPath()
+        ctx.moveTo(1500 + Math.cos(a) * 300, 1000 + Math.sin(a) * 300)
+        ctx.lineTo(1500 + Math.cos(a) * 900, 1000 + Math.sin(a) * 900)
+        ctx.stroke()
+      }
+      return c.toDataURL('image/jpeg', 0.96)
+    })
+    const file = join(OUT, name)
+    await writeFile(file, Buffer.from(dataUrl.split(',')[1], 'base64'))
+    originals.push(file)
+  }
+  await page.setInputFiles('input[type=file][accept="image/*"]', originals)
+  await page.waitForSelector('.toast:has-text("upgraded to print quality")', { timeout: 120000 })
+  const upgradeToast = await page.locator('.toast').innerText()
+  console.log(`  ✓ ${upgradeToast}`)
+  if (!/3 photos upgraded/.test(upgradeToast)) fail('the originals did not replace the compressed copies')
+  await page.waitForTimeout(1500)
+
+  step('9c', 'Now the press resolution is available')
+  await page.selectOption('.card select:has(option:has-text("dpi"))', '300')
+  const chosenDpi = await page.locator('.card select:has(option:has-text("dpi"))').inputValue()
+  if (chosenDpi !== '300') fail('300 dpi should be selectable after subscribing')
+  console.log('  ✓ export set to 300 dpi')
+
+  step(10, 'Capture the printed pages')
   await page.setViewportSize({ width: 1100, height: 1000 })
   await page.waitForTimeout(2000)
   await page.addStyleTag({ content: '.topbar,.steps{visibility:hidden !important}' })
   const total = await page.locator('.page-item').count()
-  await shotPage(0, '09-page-cover')
-  await shotPage(1, '10-page-chapter')
-  await shotPage(2, '11-page-inside')
-  await shotPage(total - 1, '12-page-closing')
+  await shotPage(0, '12-page-cover')
+  await shotPage(1, '13-page-chapter')
+  await shotPage(2, '14-page-inside')
+  await shotPage(total - 1, '15-page-closing')
   await page.addStyleTag({ content: '.topbar,.steps{visibility:visible !important}' })
 
-  step(9, 'Export the print-ready PDF')
+  step(11, 'Export the print-ready PDF at 300 dpi')
   await page.evaluate(() => window.scrollTo(0, 0))
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 240000 }),
     page.click('button:has-text("Download album PDF")'),
   ])
-  const pdfPath = join(OUT, 'album.pdf')
+  const pdfPath = join(OUT, 'album-subscribed.pdf')
   await download.saveAs(pdfPath)
   const pdf = await readFile(pdfPath)
   if (pdf.subarray(0, 5).toString() !== '%PDF-') fail('the exported file is not a PDF')
   const pdfPages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length
   console.log(`  ✓ album.pdf — ${(pdf.length / 1048576).toFixed(2)} MB, ${pdfPages} pages`)
+  // The paid export carries far more detail than the capped, watermarked draft.
+  if (pdf.length <= summary.freePdfBytes * 1.5) {
+    fail(`the paid export (${pdf.length}) is not meaningfully richer than the free draft (${summary.freePdfBytes})`)
+  }
+  console.log(`  ✓ ${(pdf.length / summary.freePdfBytes).toFixed(1)}× the data of the free draft`)
   if (pdfPages !== total) fail(`PDF has ${pdfPages} pages, the preview showed ${total}`)
   summary.pdfPages = pdfPages
   summary.pdfBytes = pdf.length
+  summary.plan = paidChip
 
-  step(10, 'Reload to prove everything survives a restart')
+  step(12, 'Reload to prove everything survives a restart')
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForTimeout(3000)
   const persisted = await page.locator('.page-item').count()
   console.log(`  ✓ after reload: ${persisted} pages`)
   if (persisted !== total) fail(`album did not persist: ${persisted} pages after reload, ${total} before`)
   summary.persistedPages = persisted
-  await shot('13-after-reload')
+  await shot('16-after-reload')
 
   await writeFile(join(OUT, 'summary.json'), JSON.stringify({ ai: health, ...summary }, null, 2))
   console.log('\n✅ End-to-end demo passed. Output in demo-output/')

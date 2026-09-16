@@ -430,3 +430,100 @@ textarea { min-height: 70px; resize: vertical; }
 .chapters .who { font-family: var(--display); font-size: 16px; }
 .chapters .native { font-size: 13px; color: var(--gold); }
 .chapters .count { margin-left: auto; font-size: 12px; color: var(--ink-soft); white-space: nowrap; }
+
+/* ---------- plans, paywall, quality comparison ---------- */
+
+.plan-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 600;
+  padding: 3px 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.35); background: transparent; color: #f7e6c4;
+}
+.plan-chip.paid { background: var(--gold); border-color: var(--gold); color: #3a2405; }
+
+.paywall {
+  position: fixed; inset: 0; z-index: 120;
+  background: rgba(18, 9, 6, .72);
+  backdrop-filter: blur(6px);
+  display: grid; place-items: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+.paywall-sheet {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 26px 22px;
+  width: min(940px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+.paywall-sheet .deva { font-family: var(--deva); color: var(--gold); font-size: 15px; }
+.paywall-sheet h2 { font-size: 26px; margin-top: 4px; }
+.paywall-close {
+  position: absolute; top: 12px; right: 12px;
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--paper); cursor: pointer;
+}
+
+.plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-top: 18px; }
+.plan {
+  position: relative;
+  border: 1px solid var(--line); border-radius: 14px; padding: 16px;
+  background: var(--paper); display: flex; flex-direction: column; gap: 6px;
+}
+.plan.featured { border-color: var(--gold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 22%, transparent); }
+.plan.current { opacity: .75; }
+.plan h3 { font-size: 19px; }
+.plan .price { font-family: var(--display); font-size: 28px; line-height: 1.1; }
+.plan .price span { font-family: var(--sans); font-size: 13px; color: var(--ink-soft); }
+.plan ul { list-style: none; padding: 0; margin: 8px 0 12px; font-size: 13.5px; color: var(--ink-soft); }
+.plan li { padding: 3px 0 3px 18px; position: relative; }
+.plan li::before { content: '·'; position: absolute; left: 6px; color: var(--gold); font-weight: 700; }
+.plan .btn { margin-top: auto; }
+.ribbon {
+  position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+  background: var(--gold); color: #3a2405;
+  font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 999px; white-space: nowrap;
+}
+
+.compare-card { margin-top: 10px; }
+.compare {
+  position: relative; aspect-ratio: 1; max-width: 420px; margin: 0 auto;
+  border-radius: 12px; overflow: hidden; border: 1px solid var(--line);
+  cursor: ew-resize; user-select: none; touch-action: none;
+  background: var(--paper-2);
+}
+.compare img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.compare-top { position: absolute; inset: 0; }
+.compare-handle {
+  position: absolute; top: 0; bottom: 0; width: 2px; background: var(--gold);
+  transform: translateX(-1px); pointer-events: none;
+}
+.compare-handle span {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 32px; height: 32px; border-radius: 50%; background: var(--gold); color: #3a2405;
+  display: grid; place-items: center; font-size: 15px; box-shadow: 0 2px 8px rgba(0,0,0,.3);
+}
+.compare-label {
+  position: absolute; bottom: 8px;
+  font-size: 11px; padding: 3px 8px; border-radius: 999px;
+  background: rgba(20,10,5,.7); color: #fff; backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+.compare-label.left { left: 8px; }
+.compare-label.right { right: 8px; }
+.compare-range { width: min(420px, 100%); margin: 10px auto 0; display: block; accent-color: var(--gold); }
+
+.quota {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--ink-soft);
+  padding: 8px 12px; border-radius: 10px; background: var(--paper-2);
+  margin-top: 10px;
+}
+.quota b { color: var(--ink); }
+.quota .btn { margin-left: auto; }
+
+.locked { opacity: .55; }

@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import * as db from './lib/db'
 import { uid } from './lib/id'
-import { makeSamplePhoto, prepareUpload, releaseThumbUrl, SAMPLE_COUNT } from './lib/images'
+import { makeSamplePhoto, prepareUpload, previewCache, releaseThumbUrl, SAMPLE_COUNT } from './lib/images'
 import { generatePages, relayoutPage } from './lib/layout'
 import { pageSizeById, themeById, THEMES, PAGE_SIZES } from './lib/themes'
 import type { Album, AlbumOptions, Photo, PhotoSource, PhotoStatus, Project } from './lib/types'
@@ -9,6 +9,8 @@ import type { AiStatus, EditOp, Language, PhotoVerdict } from './lib/aiContract'
 import { aiStatus as fetchAiStatus, buildStory as aiBuildStory, curatePhotos, requestEdit } from './lib/ai'
 import { applyOps } from './lib/applyOps'
 import { uid as newId } from './lib/id'
+import { planOf, readPlan, writePlan, type Plan, type PlanId } from './lib/plan'
+import { matchOriginals } from './lib/reimport'
 
 export type ProjectInit = Partial<Omit<Project, 'album'>> & { album?: Partial<AlbumOptions> }
 
@@ -29,6 +31,12 @@ export interface ChatTurn {
 export interface AiState extends AiStatus {
   batch: number
   busy: string | null
+}
+
+/** Why an action is blocked, so the UI can show the right upsell. */
+export interface Paywall {
+  reason: string
+  detail: string
 }
 
 interface Ctx {
@@ -70,6 +78,15 @@ interface Ctx {
   sendEdit: (instruction: string) => Promise<void>
   undoAiEdit: () => Promise<void>
   clearChat: () => void
+
+  /* ---- plan ---- */
+  plan: Plan
+  setPlan: (id: PlanId) => void
+  paywall: Paywall | null
+  showPaywall: (p: Paywall) => void
+  dismissPaywall: () => void
+  /** Re-import the originals for photos already in this album, at the new plan's quality. */
+  reimportOriginals: (files: File[]) => Promise<{ upgraded: number; unmatched: number }>
 }
 
 const AppCtx = createContext<Ctx | null>(null)
@@ -81,7 +98,7 @@ export const useApp = (): Ctx => {
 }
 
 const defaultAlbum = (): AlbumOptions => ({
-  themeId: THEMES[0].id,
+  themeId: 'godavari',
   pageSizeId: 'sq8',
   density: 'balanced',
   includeCover: true,
@@ -97,7 +114,7 @@ const defaultAlbum = (): AlbumOptions => ({
 function hydrate(p: Project): Project {
   return {
     ...p,
-    language: p.language ?? 'english',
+    language: p.language ?? 'telugu',
     chapters: p.chapters ?? [],
     album: { ...defaultAlbum(), ...p.album },
   }
@@ -113,10 +130,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [album, setAlbum] = useState<Album | null>(null)
   const [progress, setProgress] = useState<Progress | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [planId, setPlanId] = useState<PlanId>(() => readPlan())
+  const [paywall, setPaywall] = useState<Paywall | null>(null)
   const [ai, setAi] = useState<AiState>({ enabled: false, model: '', batch: 6, busy: null })
   const [chat, setChat] = useState<ChatTurn[]>([])
   const undoStack = useRef<Array<{ project: Project; photos: Photo[] }>>([])
   const [canUndo, setCanUndo] = useState(false)
+  const plan = useMemo(() => planOf(planId), [planId])
+  const planRef = useRef(plan)
+  planRef.current = plan
   const projectRef = useRef<Project | null>(null)
   const photosRef = useRef<Photo[]>([])
   projectRef.current = project
@@ -166,7 +188,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createdAt: now,
         updatedAt: now,
         album: { ...defaultAlbum(), ...(init.album ?? {}) },
-        language: init.language ?? 'english',
+        language: init.language ?? 'telugu',
         chapters: [],
       }
       await db.putProject(p)
@@ -227,13 +249,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ): Promise<number> => {
       const cur = projectRef.current
       if (!cur) return 0
+      const limits = planRef.current.limits
       const existing = await db.getPhotos(cur.id)
       let order = existing.reduce((m, p) => Math.max(m, p.order), 0) + 1
       let added = 0
-      for (let i = 0; i < items.length; i++) {
-        setProgress({ done: i, total: items.length, label: `Processing ${items[i].name}` })
+      const room = Math.max(0, limits.maxPhotosPerAlbum - existing.length)
+      if (!room) {
+        setPaywall({
+          reason: `This album is full at ${limits.maxPhotosPerAlbum} photos`,
+          detail: `${planRef.current.name} albums hold ${limits.maxPhotosPerAlbum} photos. A bigger plan holds more.`,
+        })
+        return 0
+      }
+      const accepted = items.slice(0, room)
+      const overflow = items.length - accepted.length
+      // Keep the detail comparison for the first few photos only — it is there to
+      // show what compression costs, not to become storage of its own.
+      const samplesSoFar = existing.filter((p) => p.hasSample).length
+      for (let i = 0; i < accepted.length; i++) {
+        setProgress({ done: i, total: accepted.length, label: `Processing ${accepted[i].name}` })
         try {
-          const prepared = await prepareUpload(items[i].blob)
+          const withSample = !limits.printGrade && samplesSoFar + added < 6
+          const prepared = await prepareUpload(accepted[i].blob, {
+            maxPx: limits.ingestMaxPx,
+            quality: limits.ingestQuality,
+            withSample,
+          })
           const photo: Photo = {
             id: uid('ph_'),
             projectId: cur.id,
@@ -245,16 +286,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             note: '',
             width: prepared.width,
             height: prepared.height,
-            bytes: items[i].bytes,
+            sourceWidth: prepared.sourceWidth,
+            sourceHeight: prepared.sourceHeight,
+            printGrade: limits.printGrade,
+            hasSample: Boolean(prepared.sampleReal),
+            bytes: accepted[i].bytes,
             addedAt: Date.now(),
-            takenAt: items[i].takenAt,
+            takenAt: accepted[i].takenAt,
             order: order++,
           }
           await db.putPhoto(photo)
-          await db.putBlobs({ photoId: photo.id, full: prepared.full, thumb: prepared.thumb })
+          await db.putBlobs({
+            photoId: photo.id,
+            full: prepared.full,
+            thumb: prepared.thumb,
+            sampleReal: prepared.sampleReal,
+            sampleStored: prepared.sampleStored,
+          })
           added++
         } catch (err) {
-          console.error('Could not read', items[i].name, err)
+          console.error('Could not read', accepted[i].name, err)
         }
         // let the progress bar paint
         await new Promise((r) => setTimeout(r, 0))
@@ -262,6 +313,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setProgress(null)
       setPhotos(await db.getPhotos(cur.id))
       if (added && cur.status === 'collecting') await persist({ ...cur, status: 'review' })
+      if (overflow) {
+        setPaywall({
+          reason: `${overflow} photo${overflow > 1 ? 's' : ''} did not fit`,
+          detail: `${planRef.current.name} albums hold ${limits.maxPhotosPerAlbum} photos, and this one is now full.`,
+        })
+      }
       return added
     },
     [persist],
@@ -423,12 +480,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const startDemo = useCallback(
     async (themeId?: string) => {
       const p = await createProject({
-        title: 'Priya & Arjun',
-        hosts: 'Priya Sharma  ·  Arjun Mehta',
+        title: 'Maa Pelli',
+        hosts: 'Sireesha  ·  Karthik',
         eventDate: '14 February 2026',
-        venue: 'Umaid Bhawan, Jodhpur',
-        occasionNote: 'Three days of haldi, mehendi, sangeet and the pheras.',
-        album: { ...defaultAlbum(), themeId: themeId ?? 'vivah-gold', pageSizeId: 'sq8', density: 'balanced' },
+        venue: 'Kalyana Mandapam, Rajahmundry',
+        occasionNote: 'A Godavari-side Telugu wedding — pellikuthuru, muhurtham and a reception.',
+        language: 'telugu',
+        album: { ...defaultAlbum(), themeId: themeId ?? 'godavari', pageSizeId: 'sq8', density: 'balanced' },
       })
       setProject(p)
       setPhotos([])
@@ -445,6 +503,83 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [addSamples, buildAlbum, createProject, persist],
   )
 
+
+
+  /* ---------------- plan ---------------- */
+
+  const setPlan = useCallback((id: PlanId) => {
+    setPlanId(id)
+    writePlan(id)
+    setPaywall(null)
+    const next = planOf(id)
+    setToast(
+      next.limits.printGrade
+        ? `${next.name} is on. New photos import at full quality — re-import your originals to upgrade this album.`
+        : `Switched to ${next.name}.`,
+    )
+  }, [])
+
+  const showPaywall = useCallback((p: Paywall) => setPaywall(p), [])
+  const dismissPaywall = useCallback(() => setPaywall(null), [])
+
+  /** After upgrading, the originals are still in the phone's gallery. Re-picking
+   *  them swaps the compressed copies for print-grade ones, in place, so the
+   *  album, its chapters and every edit survive. */
+  const reimportOriginals = useCallback(async (files: File[]) => {
+    const cur = projectRef.current
+    if (!cur) return { upgraded: 0, unmatched: 0 }
+    const limits = planRef.current.limits
+    const all = await db.getPhotos(cur.id)
+    const { matches, unmatched: missed } = matchOriginals(all, files)
+
+    let upgraded = 0
+    let unmatched = missed.length
+    setProgress({ done: 0, total: matches.length, label: 'Bringing in your originals' })
+    for (let i = 0; i < matches.length; i++) {
+      const { file, photo: match } = matches[i]
+      setProgress({ done: i, total: matches.length, label: `Upgrading ${file.name}` })
+      try {
+        const prepared = await prepareUpload(file, {
+          maxPx: limits.ingestMaxPx,
+          quality: limits.ingestQuality,
+        })
+        const existing = await db.getBlobs(match.id)
+        await db.putBlobs({
+          photoId: match.id,
+          full: prepared.full,
+          thumb: prepared.thumb,
+          // The old comparison no longer describes what is stored.
+          sampleReal: undefined,
+          sampleStored: existing?.sampleStored,
+        })
+        await db.putPhoto({
+          ...match,
+          width: prepared.width,
+          height: prepared.height,
+          sourceWidth: prepared.sourceWidth,
+          sourceHeight: prepared.sourceHeight,
+          bytes: file.size,
+          printGrade: limits.printGrade,
+          hasSample: false,
+        })
+        releaseThumbUrl(match.id)
+        upgraded++
+      } catch (err) {
+        console.error('Could not re-import', file.name, err)
+        unmatched++
+      }
+      await new Promise((r) => setTimeout(r, 0))
+    }
+    setProgress(null)
+    previewCache.clear()
+    setPhotos(await db.getPhotos(cur.id))
+    setToast(
+      upgraded
+        ? `${upgraded} photo${upgraded > 1 ? 's' : ''} upgraded to print quality.`
+        : 'None of those files matched the photos in this album.',
+    )
+    return { upgraded, unmatched }
+  }, [])
 
   /* ---------------- album assistant ---------------- */
 
@@ -497,9 +632,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const runCurate = useCallback(async () => {
     const cur = projectRef.current
     if (!cur) return null
-    const targets = photosRef.current
-    if (!targets.length) {
+    const all = photosRef.current
+    if (!all.length) {
       setToast('Add some photos first.')
+      return null
+    }
+    // The assistant is metered: review the unreviewed ones first.
+    const limit = planRef.current.limits.aiPhotoLimit
+    const unreviewed = all.filter((p) => p.aiScore === undefined)
+    const queue = unreviewed.length ? unreviewed : all
+    const targets = Number.isFinite(limit) ? queue.slice(0, limit) : queue
+    const skipped = queue.length - targets.length
+    if (!targets.length) {
+      setPaywall({
+        reason: 'You have used this album\u2019s assistant quota',
+        detail: `${planRef.current.name} reviews ${limit} photos per album. Upgrade to have it look at all of them.`,
+      })
       return null
     }
     snapshot()
@@ -520,6 +668,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const kept = next.filter((p) => p.status === 'approved').length
       const dropped = next.filter((p) => p.status === 'rejected').length
       setToast(`Reviewed ${verdicts.length} photos — ${kept} kept, ${dropped} left out.`)
+      if (skipped > 0) {
+        setPaywall({
+          reason: `${skipped} photo${skipped > 1 ? 's' : ''} were not reviewed`,
+          detail: `${planRef.current.name} reviews ${limit} photos per album. Upgrade and the assistant looks at every one.`,
+        })
+      }
       return { kept, dropped }
     } catch (err) {
       setToast(err instanceof Error ? err.message : 'The assistant could not review these photos.')
@@ -744,6 +898,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       sendEdit,
       undoAiEdit,
       clearChat,
+      plan,
+      setPlan,
+      paywall,
+      showPaywall,
+      dismissPaywall,
+      reimportOriginals,
     }),
     [
       ready,
@@ -780,6 +940,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       sendEdit,
       undoAiEdit,
       clearChat,
+      plan,
+      setPlan,
+      paywall,
+      showPaywall,
+      dismissPaywall,
+      reimportOriginals,
     ],
   )
 

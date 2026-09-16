@@ -26,12 +26,16 @@ const fontsReady = new Map<string, Promise<void>>()
 /* Google splits each family into unicode-range subsets, so a font has to be
    requested with text in its own script or the wrong subset (or none) loads. */
 const SCRIPT_SAMPLES: Record<Language, [string, string]> = {
+  telugu: ['"Noto Serif Telugu"', 'పెళ్లి'],
   english: ['"Cormorant Garamond"', 'Sample'],
   hindi: ['"Tiro Devanagari Hindi"', 'शुभ विवाह'],
+  marathi: ['"Tiro Devanagari Hindi"', 'लग्न'],
   tamil: ['"Noto Serif Tamil"', 'திருமணம்'],
-  telugu: ['"Noto Serif Telugu"', 'పెళ్లి'],
   kannada: ['"Noto Serif Kannada"', 'ಮದುವೆ'],
   malayalam: ['"Noto Serif Malayalam"', 'വിവാഹം'],
+  bengali: ['"Noto Serif Bengali"', 'বিবাহ'],
+  gujarati: ['"Noto Serif Gujarati"', 'લગ્ન'],
+  punjabi: ['"Noto Serif Gurmukhi"', 'ਵਿਆਹ'],
 }
 
 const BASE_FONTS = [
@@ -309,6 +313,40 @@ function drawBorder(ctx: Ctx, W: number, H: number, theme: Theme, u: number, see
       break
     case 'kasavu':
       M.kasavuBand(ctx, 0, 0, W, H, u, theme)
+      break
+    case 'alpona':
+      for (const [cx, cy, rot] of [
+        [inset, inset, 0],
+        [W - inset, inset, Math.PI / 2],
+        [W - inset, H - inset, Math.PI],
+        [inset, H - inset, -Math.PI / 2],
+      ] as const) {
+        ctx.save()
+        ctx.translate(cx, cy)
+        ctx.rotate(rot)
+        M.alponaCorner(ctx, corner * 0.85)
+        ctx.restore()
+      }
+      break
+    case 'peacock':
+      for (const [cx, flip] of [
+        [inset + corner * 0.6, 1],
+        [W - inset - corner * 0.6, -1],
+      ] as const) {
+        ctx.save()
+        ctx.translate(cx, H - inset - corner * 0.5)
+        ctx.scale(flip, 1)
+        M.peacock(ctx, corner * 0.7, theme)
+        ctx.restore()
+      }
+      break
+    case 'phulkari':
+      M.phulkariBand(ctx, inset, m * 0.35, W - inset * 2, u, theme)
+      M.phulkariBand(ctx, inset, H - m * 0.35 - u * 2.2, W - inset * 2, u, theme)
+      break
+    case 'bandhani':
+      M.bandhaniField(ctx, 0, 0, W, m, u, theme, rand)
+      M.bandhaniField(ctx, 0, H - m, W, m, u, theme, rand)
       break
   }
 }

@@ -6,6 +6,7 @@ import { Review } from './screens/Review'
 import { Design } from './screens/Design'
 import { AlbumView } from './screens/AlbumView'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { Paywall } from './components/Paywall'
 
 type Tab = 'upload' | 'review' | 'design' | 'album'
 const TABS: Array<{ id: Tab; label: string }> = [
@@ -99,6 +100,18 @@ function Shell() {
         </button>
         <span className="spacer" />
         {project && <span className={`chip ${project.status}`}>{project.status === 'collecting' ? 'Collecting' : project.status === 'review' ? 'In review' : 'Finalized'}</span>}
+        <button
+          className={`plan-chip${app.plan.limits.printGrade ? ' paid' : ''}`}
+          onClick={() =>
+            app.showPaywall(
+              app.plan.limits.printGrade
+                ? { reason: 'Your plan', detail: `You are on ${app.plan.name}.` }
+                : { reason: 'Your photos are being compressed', detail: 'Free albums store a smaller copy of each photo. Subscribe to keep them at print quality.' },
+            )
+          }
+        >
+          {app.plan.limits.printGrade ? `★ ${app.plan.name}` : 'Free'}
+        </button>
         <InstallButton />
       </header>
 
@@ -155,6 +168,7 @@ function Shell() {
         </div>
       )}
 
+      <Paywall />
       {app.toast && <div className="toast">{app.toast}</div>}
     </div>
   )

@@ -17,6 +17,13 @@ export interface Photo {
   note: string
   width: number
   height: number
+  /** Size of the photo as it came off the phone, before this plan compressed it. */
+  sourceWidth?: number
+  sourceHeight?: number
+  /** Whether this copy is print-grade or the compressed free-tier one. */
+  printGrade?: boolean
+  /** Whether a before/after detail sample was kept for this photo. */
+  hasSample?: boolean
   bytes: number
   addedAt: number
   takenAt?: number

@@ -12,6 +12,10 @@ export type MotifKind =
   | 'pearl'
   | 'pookalam'
   | 'kasavu'
+  | 'alpona'
+  | 'peacock'
+  | 'phulkari'
+  | 'bandhani'
 
 export interface Palette {
   /** Page background. */
@@ -33,6 +37,8 @@ export interface Theme {
   id: string
   name: string
   occasion: string
+  /** Where in India this style comes from. */
+  region: string
   /** One-line description shown in the picker. */
   blurb: string
   /** Script flourish printed on the cover, e.g. शुभ विवाह. */
@@ -56,12 +62,16 @@ const DEVA = "'Tiro Devanagari Hindi', 'Noto Sans Devanagari', Georgia, serif"
 
 /** The album prints regional captions in the family's own script. */
 const SCRIPT_FONTS: Record<Language, string> = {
+  telugu: "'Noto Serif Telugu', 'Gautami', Georgia, serif",
   english: SERIF,
   hindi: DEVA,
+  marathi: DEVA,
   tamil: "'Noto Serif Tamil', 'Latha', Georgia, serif",
-  telugu: "'Noto Serif Telugu', 'Gautami', Georgia, serif",
   kannada: "'Noto Serif Kannada', 'Tunga', Georgia, serif",
   malayalam: "'Noto Serif Malayalam', 'Kartika', Georgia, serif",
+  bengali: "'Noto Serif Bengali', 'Vrinda', Georgia, serif",
+  gujarati: "'Noto Serif Gujarati', 'Shruti', Georgia, serif",
+  punjabi: "'Noto Serif Gurmukhi', 'Raavi', Georgia, serif",
 }
 
 export const scriptFontFor = (language: Language = 'english'): string =>
@@ -69,7 +79,176 @@ export const scriptFontFor = (language: Language = 'english'): string =>
 
 export const THEMES: Theme[] = [
   {
+    id: 'godavari',
+    region: 'Andhra & Telangana',
+    name: 'Godavari Pellikuthuru',
+    occasion: 'Telugu wedding',
+    blurb: 'River green, turmeric gold and kumkum red, with muggu corners — the Godavari districts.',
+    script: 'పెళ్లి',
+    defaultTitle: 'Maa Pelli',
+    closingLine: 'With the blessings of both our families',
+    closingScript: 'ధన్యవాదాలు',
+    palette: {
+      paper: '#fdfaf0',
+      paperAlt: '#f0ead2',
+      ink: '#26331b',
+      inkSoft: '#6f7a54',
+      accent: '#1f6b4f',
+      accentSoft: '#63a583',
+      gold: '#c79a1e',
+      cover: '#17543e',
+      coverAlt: '#0a2a1f',
+      coverInk: '#f7e9bb',
+    },
+    motif: 'kolam',
+    shape: 'arch',
+    titleFont: DISPLAY,
+    bodyFont: SERIF,
+    scriptFont: SCRIPT_FONTS.telugu,
+  },
+  {
+    id: 'kalyanamandapam',
+    region: 'Andhra & Telangana',
+    name: 'Kalyana Mandapam',
+    occasion: 'Telugu wedding',
+    blurb: 'Kumkum red and heavy gold for the jeelakarra bellam and talambralu moments.',
+    script: 'కళ్యాణం',
+    defaultTitle: 'Our Kalyanam',
+    closingLine: 'Thank you for blessing us',
+    closingScript: 'నమస్కారం',
+    palette: {
+      paper: '#fdf5ee',
+      paperAlt: '#f6e3cf',
+      ink: '#40140f',
+      inkSoft: '#916150',
+      accent: '#a82116',
+      accentSoft: '#d4695c',
+      gold: '#c99420',
+      cover: '#8d1a12',
+      coverAlt: '#4a0905',
+      coverInk: '#fbe6c2',
+    },
+    motif: 'mandala',
+    shape: 'arch',
+    titleFont: DISPLAY,
+    bodyFont: SERIF,
+    scriptFont: SCRIPT_FONTS.telugu,
+  },
+  {
+    id: 'bengali-lal',
+    region: 'Bengal',
+    name: 'Lal Paar',
+    occasion: 'Bengali wedding',
+    blurb: 'The red and white of a Bengali wedding, with alpona vines at the corners.',
+    script: 'বিবাহ',
+    defaultTitle: 'Our Wedding',
+    closingLine: 'With love from both our families',
+    closingScript: 'ধন্যবাদ',
+    palette: {
+      paper: '#fdf8f4',
+      paperAlt: '#f6e2dc',
+      ink: '#40120f',
+      inkSoft: '#8f5b52',
+      accent: '#c0221c',
+      accentSoft: '#e0736b',
+      gold: '#c79a35',
+      cover: '#a8191a',
+      coverAlt: '#5c0a0c',
+      coverInk: '#fdf3e4',
+    },
+    motif: 'alpona',
+    shape: 'round',
+    titleFont: DISPLAY,
+    bodyFont: SERIF,
+    scriptFont: SCRIPT_FONTS.bengali,
+  },
+  {
+    id: 'paithani',
+    region: 'Maharashtra',
+    name: 'Paithani Peacock',
+    occasion: 'Marathi wedding',
+    blurb: 'Paithani green and gold with a woven peacock — Marathi weddings and receptions.',
+    script: 'लग्न',
+    defaultTitle: 'Aamcha Lagna',
+    closingLine: 'Thank you for being with us',
+    closingScript: 'धन्यवाद',
+    palette: {
+      paper: '#f8f9f2',
+      paperAlt: '#e6efdc',
+      ink: '#123027',
+      inkSoft: '#4f6d5f',
+      accent: '#0d5f52',
+      accentSoft: '#4f998b',
+      gold: '#c2951f',
+      cover: '#0c4a41',
+      coverAlt: '#042420',
+      coverInk: '#f5e8bd',
+    },
+    motif: 'peacock',
+    shape: 'arch',
+    titleFont: DISPLAY,
+    bodyFont: SERIF,
+    scriptFont: DEVA,
+  },
+  {
+    id: 'phulkari',
+    region: 'Punjab',
+    name: 'Phulkari',
+    occasion: 'Punjabi wedding',
+    blurb: 'Phulkari pinks and marigold on ivory — anand karaj, chooda and a long night of bhangra.',
+    script: 'ਵਿਆਹ',
+    defaultTitle: 'Our Wedding',
+    closingLine: 'Thank you for dancing with us',
+    closingScript: 'ਧੰਨਵਾਦ',
+    palette: {
+      paper: '#fffaf2',
+      paperAlt: '#fdeade',
+      ink: '#44201f',
+      inkSoft: '#94625c',
+      accent: '#d4356b',
+      accentSoft: '#f2874f',
+      gold: '#d9a521',
+      cover: '#c22a5e',
+      coverAlt: '#7a1338',
+      coverInk: '#fff0d5',
+    },
+    motif: 'phulkari',
+    shape: 'round',
+    titleFont: DISPLAY,
+    bodyFont: SANS,
+    scriptFont: SCRIPT_FONTS.punjabi,
+  },
+  {
+    id: 'bandhani',
+    region: 'Gujarat & Rajasthan',
+    name: 'Bandhani',
+    occasion: 'Gujarati wedding',
+    blurb: 'Bandhani red and saffron with mirror-bright dots — pithi, garba and the hastamelap.',
+    script: 'લગ્ન',
+    defaultTitle: 'Our Wedding',
+    closingLine: 'With gratitude from both families',
+    closingScript: 'આભાર',
+    palette: {
+      paper: '#fffaf0',
+      paperAlt: '#fdeccd',
+      ink: '#4a1f12',
+      inkSoft: '#9a6440',
+      accent: '#c8331f',
+      accentSoft: '#ef8a3c',
+      gold: '#d3a020',
+      cover: '#b32a17',
+      coverAlt: '#6a1208',
+      coverInk: '#ffeecb',
+    },
+    motif: 'bandhani',
+    shape: 'round',
+    titleFont: DISPLAY,
+    bodyFont: SERIF,
+    scriptFont: SCRIPT_FONTS.gujarati,
+  },
+  {
     id: 'kanjeevaram',
+    region: 'Tamil Nadu',
     name: 'Kanjeevaram Muhurtham',
     occasion: 'South Indian wedding',
     blurb: 'Kanjeevaram maroon and temple gold with kolam corners — the Tamil muhurtham album.',
@@ -97,6 +276,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'pattu-jasmine',
+    region: 'Andhra & Telangana',
     name: 'Pattu & Jasmine',
     occasion: 'South Indian wedding',
     blurb: 'Jasmine white, leaf green and gold — Telugu pellikuthuru and muhurtham mornings.',
@@ -124,6 +304,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'kasavu',
+    region: 'Kerala',
     name: 'Kerala Kasavu',
     occasion: 'South Indian wedding',
     blurb: 'Off-white kasavu cloth with a woven gold border and pookalam corners.',
@@ -151,6 +332,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'mysore-silk',
+    region: 'Karnataka',
     name: 'Mysore Silk',
     occasion: 'South Indian wedding',
     blurb: 'Royal purple Mysore silk with gold mandalas — Kannada weddings and receptions.',
@@ -178,6 +360,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'stage-reception',
+    region: 'Pan-India',
     name: 'Stage Reception',
     occasion: 'South Indian reception',
     blurb: 'Charcoal and gold, wide frames and no fuss — built for stage and guest photos.',
@@ -205,6 +388,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'vivah-gold',
+    region: 'North India',
     name: 'Royal Vivah',
     occasion: 'Wedding',
     blurb: 'Deep maroon, gold mandalas and arched frames — the classic North Indian wedding album.',
@@ -232,6 +416,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'marigold-mandap',
+    region: 'North India',
     name: 'Marigold Mandap',
     occasion: 'Wedding',
     blurb: 'Genda-phool orange and temple red with garland borders. Warm and festive.',
@@ -259,6 +444,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'dakshin-temple',
+    region: 'South India',
     name: 'Dakshin Kalyanam',
     occasion: 'Wedding',
     blurb: 'Kanjeevaram gold-on-emerald with kolam corners — South Indian wedding styling.',
@@ -286,6 +472,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'haldi-sun',
+    region: 'Pan-India',
     name: 'Haldi Sunshine',
     occasion: 'Haldi',
     blurb: 'Turmeric yellow, bright and playful — perfect for haldi and pithi mornings.',
@@ -313,6 +500,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'mehendi-green',
+    region: 'Pan-India',
     name: 'Mehendi Night',
     occasion: 'Mehendi',
     blurb: 'Henna green with paisley vines curling around every frame.',
@@ -340,6 +528,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'sangeet-night',
+    region: 'Pan-India',
     name: 'Sangeet Midnight',
     occasion: 'Sangeet',
     blurb: 'Indigo night with gold sparkle — dancing, dhol and stage lights.',
@@ -367,6 +556,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'sagai-rose',
+    region: 'Pan-India',
     name: 'Sagai Rose',
     occasion: 'Engagement',
     blurb: 'Blush rose and ivory with pearl detailing — soft and romantic.',
@@ -394,6 +584,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'reception-ivory',
+    region: 'Pan-India',
     name: 'Ivory Minimal',
     occasion: 'Reception',
     blurb: 'Clean ivory and charcoal with a single gold hairline. Lets the photos speak.',
@@ -421,6 +612,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'naamkaran',
+    region: 'Pan-India',
     name: 'Naamkaran Pastel',
     occasion: 'Baby / Naming',
     blurb: 'Soft pastels and tiny footprints — naamkaran, annaprashan and first birthdays.',
@@ -448,6 +640,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'birthday-confetti',
+    region: 'Pan-India',
     name: 'Birthday Confetti',
     occasion: 'Birthday',
     blurb: 'Bright confetti bursts on cream — birthdays and anniversaries.',
@@ -475,6 +668,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'griha-pravesh',
+    region: 'Pan-India',
     name: 'Griha Pravesh',
     occasion: 'House warming',
     blurb: 'Terracotta and rangoli corners for griha pravesh and pooja days.',
@@ -502,6 +696,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: 'diwali-diya',
+    region: 'Pan-India',
     name: 'Diwali Diya',
     occasion: 'Festival',
     blurb: 'Lamp-lit purple and amber for Diwali, Pongal, Onam and every festival at home.',
@@ -529,7 +724,25 @@ export const THEMES: Theme[] = [
   },
 ]
 
-export const themeById = (id: string): Theme => THEMES.find((t) => t.id === id) ?? THEMES[0]
+export const DEFAULT_THEME_ID = 'godavari'
+
+export const themeById = (id: string): Theme =>
+  THEMES.find((t) => t.id === id) ?? THEMES.find((t) => t.id === DEFAULT_THEME_ID) ?? THEMES[0]
+
+/** Regions in the order the picker shows them — the studio's own first. */
+export const REGIONS = [
+  'Andhra & Telangana',
+  'Tamil Nadu',
+  'Karnataka',
+  'Kerala',
+  'North India',
+  'Bengal',
+  'Maharashtra',
+  'Punjab',
+  'Gujarat & Rajasthan',
+  'South India',
+  'Pan-India',
+] as const
 
 export const PAGE_SIZES: PageSizeSpec[] = [
   { id: 'sq8', label: 'Square 8 × 8 in', w: 8, h: 8 },

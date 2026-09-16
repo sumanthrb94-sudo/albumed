@@ -9,6 +9,10 @@ export interface BlobRecord {
   photoId: string
   full: Blob
   thumb: Blob
+  /** True-detail crop, kept for a handful of photos per album. */
+  sampleReal?: Blob
+  /** The same crop as stored, for the side-by-side. */
+  sampleStored?: Blob
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null

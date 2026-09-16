@@ -1,15 +1,13 @@
 import { useRef, useState } from 'react'
 import { useApp } from '../store'
 import { importBundle } from '../lib/bundle'
-import { THEMES } from '../lib/themes'
-
-const OCCASIONS = Array.from(new Set(THEMES.map((t) => t.occasion)))
+import { DEFAULT_THEME_ID, REGIONS, THEMES } from '../lib/themes'
 
 export function Home({ nav }: { nav: (hash: string) => void }) {
   const app = useApp()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [form, setForm] = useState({ title: '', hosts: '', eventDate: '', venue: '', themeId: THEMES[0].id })
+  const [form, setForm] = useState({ title: '', hosts: '', eventDate: '', venue: '', themeId: DEFAULT_THEME_ID })
   const fileRef = useRef<HTMLInputElement | null>(null)
 
   const create = async () => {
@@ -91,7 +89,7 @@ export function Home({ nav }: { nav: (hash: string) => void }) {
               <span>Album title</span>
               <input
                 type="text"
-                placeholder="Our Wedding"
+                placeholder="Maa Pelli"
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
               />
@@ -100,7 +98,7 @@ export function Home({ nav }: { nav: (hash: string) => void }) {
               <span>Names / hosts</span>
               <input
                 type="text"
-                placeholder="Priya &amp; Arjun"
+                placeholder="Sireesha &amp; Karthik"
                 value={form.hosts}
                 onChange={(e) => setForm({ ...form, hosts: e.target.value })}
               />
@@ -118,24 +116,28 @@ export function Home({ nav }: { nav: (hash: string) => void }) {
               <span>Venue / city</span>
               <input
                 type="text"
-                placeholder="Umaid Bhawan, Jodhpur"
+                placeholder="Kalyana Mandapam, Rajahmundry"
                 value={form.venue}
                 onChange={(e) => setForm({ ...form, venue: e.target.value })}
               />
             </label>
           </div>
           <label className="field">
-            <span>Occasion style (change any time)</span>
+            <span>Album style (change any time)</span>
             <select value={form.themeId} onChange={(e) => setForm({ ...form, themeId: e.target.value })}>
-              {OCCASIONS.map((occ) => (
-                <optgroup key={occ} label={occ}>
-                  {THEMES.filter((t) => t.occasion === occ).map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
+              {REGIONS.map((region) => {
+                const inRegion = THEMES.filter((t) => t.region === region)
+                if (!inRegion.length) return null
+                return (
+                  <optgroup key={region} label={region}>
+                    {inRegion.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} — {t.occasion}
+                      </option>
+                    ))}
+                  </optgroup>
+                )
+              })}
             </select>
           </label>
           <button className="btn primary block" onClick={create}>

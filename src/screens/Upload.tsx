@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useApp } from '../store'
 import { PhotoThumb } from '../components/PhotoThumb'
 import type { PhotoSource } from '../lib/types'
+import { QualityNudge } from '../components/QualityCompare'
 
 export function Upload({ nav }: { nav: (hash: string) => void }) {
   const app = useApp()
@@ -39,6 +40,14 @@ export function Upload({ nav }: { nav: (hash: string) => void }) {
             </button>
           </div>
         </div>
+
+        {!app.plan.limits.printGrade && (
+          <div className="notice" style={{ marginBottom: 12 }}>
+            <b>Free albums store a compressed copy.</b> Your originals stay in your phone gallery — we
+            keep them at {app.plan.limits.ingestMaxPx}px so an album fits on the device. Subscribe before
+            uploading to keep print quality, or upgrade later and re-import the same files.
+          </div>
+        )}
 
         <div
           className={`drop${over ? ' over' : ''}`}
@@ -92,7 +101,10 @@ export function Upload({ nav }: { nav: (hash: string) => void }) {
 
         <div className="stat-row" style={{ justifyContent: 'center' }}>
           <div className="stat">
-            <b>{app.photos.length}</b>
+            <b>
+              {app.photos.length}
+              <span style={{ fontSize: 14, color: 'var(--ink-soft)' }}> / {app.plan.limits.maxPhotosPerAlbum}</span>
+            </b>
             <span>in this album</span>
           </div>
           <div className="stat">
@@ -105,6 +117,15 @@ export function Upload({ nav }: { nav: (hash: string) => void }) {
           </div>
         </div>
       </div>
+
+      <QualityNudge
+        onSubscribe={() =>
+          app.showPaywall({
+            reason: 'Keep these photos at full quality',
+            detail: 'Subscribe and every photo you add is stored print-grade — and you can re-import the ones already here.',
+          })
+        }
+      />
 
       {recent.length > 0 && (
         <div className="card">

@@ -314,4 +314,112 @@ export function kasavuBand(ctx: Ctx, x: number, y: number, w: number, h: number,
   ctx.restore()
 }
 
+/** Alpona: the white rice-paste vine painted on Bengali wedding floors. */
+export function alponaCorner(ctx: Ctx, s: number) {
+  ctx.save()
+  ctx.strokeStyle = '#fdfaf4'
+  ctx.lineWidth = Math.max(0.8, s * 0.035)
+  ctx.lineCap = 'round'
+  ctx.shadowColor = 'rgba(120,20,20,0.25)'
+  ctx.shadowBlur = s * 0.05
+  for (let i = 0; i < 4; i++) {
+    const r = s * (0.3 + i * 0.22)
+    ctx.beginPath()
+    ctx.arc(0, 0, r, 0, Math.PI / 2)
+    ctx.stroke()
+  }
+  for (let i = 0; i <= 5; i++) {
+    const a = (i / 5) * (Math.PI / 2)
+    ctx.save()
+    ctx.translate(Math.cos(a) * s * 0.74, Math.sin(a) * s * 0.74)
+    ctx.rotate(a)
+    ctx.beginPath()
+    ctx.ellipse(0, 0, s * 0.11, s * 0.045, 0, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.restore()
+  }
+  ctx.restore()
+}
+
+/** The peacock woven into a Paithani sari border. */
+export function peacock(ctx: Ctx, s: number, theme: Theme) {
+  ctx.save()
+  ctx.strokeStyle = theme.palette.gold
+  ctx.fillStyle = theme.palette.accentSoft
+  ctx.lineWidth = Math.max(0.6, s * 0.045)
+  // body
+  ctx.beginPath()
+  ctx.moveTo(0, s * 0.55)
+  ctx.quadraticCurveTo(-s * 0.3, s * 0.1, -s * 0.05, -s * 0.35)
+  ctx.quadraticCurveTo(s * 0.12, -s * 0.6, s * 0.3, -s * 0.45)
+  ctx.stroke()
+  // crest
+  ctx.beginPath()
+  ctx.arc(s * 0.3, -s * 0.5, s * 0.05, 0, Math.PI * 2)
+  ctx.fill()
+  // tail feathers
+  for (let i = 0; i < 5; i++) {
+    const a = -Math.PI * 0.1 + (i / 4) * Math.PI * 0.75
+    ctx.save()
+    ctx.rotate(a)
+    ctx.globalAlpha = 0.75
+    ctx.beginPath()
+    ctx.ellipse(0, s * 0.75, s * 0.07, s * 0.28, 0, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.restore()
+  }
+  ctx.restore()
+}
+
+/** Phulkari: the darned geometric embroidery of Punjab. */
+export function phulkariBand(ctx: Ctx, x: number, y: number, w: number, u: number, theme: Theme) {
+  ctx.save()
+  const colors = [theme.palette.accent, theme.palette.accentSoft, theme.palette.gold]
+  const step = u * 2.2
+  for (let i = 0; x + i * step < x + w; i++) {
+    ctx.fillStyle = colors[i % colors.length]
+    ctx.globalAlpha = 0.75
+    const cx = x + i * step + step / 2
+    ctx.beginPath()
+    ctx.moveTo(cx, y)
+    ctx.lineTo(cx + step * 0.4, y + u * 1.1)
+    ctx.lineTo(cx, y + u * 2.2)
+    ctx.lineTo(cx - step * 0.4, y + u * 1.1)
+    ctx.closePath()
+    ctx.fill()
+  }
+  ctx.restore()
+}
+
+/** Bandhani: the tie-dye dot clusters of Gujarat and Rajasthan. */
+export function bandhaniField(
+  ctx: Ctx,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  u: number,
+  theme: Theme,
+  rand: () => number,
+) {
+  ctx.save()
+  const step = u * 3
+  for (let py = y + step / 2; py < y + h; py += step) {
+    for (let px = x + step / 2; px < x + w; px += step) {
+      ctx.globalAlpha = 0.35 + rand() * 0.35
+      ctx.fillStyle = rand() > 0.5 ? theme.palette.gold : theme.palette.accentSoft
+      for (const [dx, dy] of [
+        [0, 0],
+        [u * 0.7, 0],
+        [u * 0.35, u * 0.6],
+      ] as const) {
+        ctx.beginPath()
+        ctx.arc(px + dx, py + dy, u * 0.16, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+  }
+  ctx.restore()
+}
+
 export const motifName = (m: MotifKind): string => m

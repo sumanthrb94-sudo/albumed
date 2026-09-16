@@ -6,14 +6,16 @@ import { downloadBlob, exportPdf, renderPageToCanvas, safeFilename, shareOrDownl
 import { exportBundle, mergeDecisions } from '../lib/bundle'
 import { canvasToBlob } from '../lib/images'
 import { pageSizeById, themeById } from '../lib/themes'
+import { exportDpiOptions } from '../lib/plan'
 import { useRef } from 'react'
 
 export function AlbumView({ nav }: { nav: (hash: string) => void }) {
   const app = useApp()
   const [busy, setBusy] = useState<string | null>(null)
   const [pct, setPct] = useState(0)
-  const [dpi, setDpi] = useState(200)
+  const [dpi, setDpi] = useState(150)
   const mergeRef = useRef<HTMLInputElement | null>(null)
+  const reimportRef = useRef<HTMLInputElement | null>(null)
   const project = app.project
   const album = app.album
 
@@ -37,14 +39,23 @@ export function AlbumView({ nav }: { nav: (hash: string) => void }) {
   const theme = themeById(project.album.themeId)
   const base = safeFilename(`${project.title}-${project.hosts}`)
 
+  const limits = app.plan.limits
+  const compressed = app.photos.filter((p) => p.status === 'approved' && p.printGrade === false).length
+
   const doPdf = async () => {
     setBusy('Building your PDF…')
     setPct(0)
     try {
-      const blob = await exportPdf(project, album, app.photos, { dpi, quality: 0.92 }, (p) => {
-        setBusy(`${p.label} of ${p.total}…`)
-        setPct(Math.round((p.page / p.total) * 100))
-      })
+      const blob = await exportPdf(
+        project,
+        album,
+        app.photos,
+        { dpi: Math.min(dpi, limits.maxExportDpi), quality: 0.92, watermark: limits.watermark },
+        (p) => {
+          setBusy(`${p.label} of ${p.total}…`)
+          setPct(Math.round((p.page / p.total) * 100))
+        },
+      )
       const how = await shareOrDownload(blob, `${base}.pdf`, project.title)
       app.setToast(how === 'shared' ? 'Album shared.' : `Saved ${base}.pdf (${(blob.size / 1048576).toFixed(1)} MB)`)
     } catch (e) {
@@ -57,7 +68,9 @@ export function AlbumView({ nav }: { nav: (hash: string) => void }) {
   const doPng = async (index: number) => {
     setBusy(`Rendering page ${index + 1}…`)
     try {
-      const canvas = await renderPageToCanvas(project, album, app.photos, index, dpi)
+      const canvas = await renderPageToCanvas(project, album, app.photos, index, Math.min(dpi, limits.maxExportDpi), {
+        watermark: limits.watermark,
+      })
       const blob = await canvasToBlob(canvas, 'image/jpeg', 0.94)
       await shareOrDownload(blob, `${base}-page-${index + 1}.jpg`, project.title)
     } finally {
@@ -113,14 +126,85 @@ export function AlbumView({ nav }: { nav: (hash: string) => void }) {
           </button>
           <label className="row" style={{ gap: 6 }}>
             <span className="hint">Print quality</span>
-            <select value={dpi} onChange={(e) => setDpi(Number(e.target.value))}>
-              <option value={150}>Draft 150 dpi</option>
-              <option value={200}>Good 200 dpi</option>
-              <option value={300}>Print 300 dpi</option>
+            <select
+              value={dpi}
+              onChange={(e) => {
+                const next = Number(e.target.value)
+                if (next > limits.maxExportDpi) {
+                  app.showPaywall({
+                    reason: 'That resolution needs a subscription',
+                    detail: `${app.plan.name} exports up to ${limits.maxExportDpi} dpi. Press-ready albums go to 300 dpi and above.`,
+                  })
+                  return
+                }
+                setDpi(next)
+              }}
+            >
+              {exportDpiOptions(app.plan.id).map((o) => (
+                <option key={o.dpi} value={o.dpi}>
+                  {o.label}
+                  {o.locked ? ' 🔒' : ''}
+                </option>
+              ))}
             </select>
           </label>
         </div>
       </div>
+
+      {limits.watermark && (
+        <div className="card ai-card">
+          <h2>This album will export as a draft</h2>
+          <p className="hint">
+            On {app.plan.name}, exports carry a watermark and cap at {limits.maxExportDpi} dpi
+            {compressed > 0 && `, and ${compressed} of the photos in it are stored compressed`}. The
+            layout, the chapters and every edit stay exactly as they are when you subscribe — only the
+            quality changes.
+          </p>
+          <button
+            className="btn gold"
+            onClick={() =>
+              app.showPaywall({
+                reason: 'Export this album press-ready',
+                detail: 'No watermark, 300 dpi, and your photos at the quality they were taken.',
+              })
+            }
+          >
+            See what a subscription changes
+          </button>
+        </div>
+      )}
+
+      {!limits.watermark && compressed > 0 && (
+        <div className="card ai-card">
+          <h2>{compressed} photos are still the compressed copies</h2>
+          <p className="hint">
+            They were added on the free plan. Pick the same files from your gallery again and they will
+            be swapped for print-quality versions — the album, its chapters and your edits stay as they
+            are.
+          </p>
+          <button className="btn gold" disabled={Boolean(busy)} onClick={() => reimportRef.current?.click()}>
+            Re-import my originals
+          </button>
+          <input
+            ref={reimportRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={async (e) => {
+              const files = Array.from(e.target.files ?? [])
+              e.target.value = ''
+              if (!files.length) return
+              setBusy('Bringing in your originals…')
+              try {
+                await app.reimportOriginals(files)
+              } finally {
+                setBusy(null)
+              }
+            }}
+          />
+        </div>
+      )}
 
       <AlbumChat />
 

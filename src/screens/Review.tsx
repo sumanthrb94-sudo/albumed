@@ -173,6 +173,26 @@ export function Review({ nav }: { nav: (hash: string) => void }) {
           </div>
         </div>
 
+        {!app.plan.limits.printGrade && (
+          <div className="quota">
+            <span>
+              The assistant reviews <b>{app.plan.limits.aiPhotoLimit}</b> photos per album on{' '}
+              {app.plan.name}.
+            </span>
+            <button
+              className="btn sm gold"
+              onClick={() =>
+                app.showPaywall({
+                  reason: 'Have the assistant review every photo',
+                  detail: `${app.plan.name} covers ${app.plan.limits.aiPhotoLimit} photos in an album. A subscription covers all of them.`,
+                })
+              }
+            >
+              Upgrade
+            </button>
+          </div>
+        )}
+
         <div className="filters">
           {FILTERS.map((f) => (
             <button key={f.id} className={filter === f.id ? 'on' : ''} onClick={() => setFilter(f.id)}>

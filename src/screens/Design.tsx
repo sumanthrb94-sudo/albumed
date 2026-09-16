@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { useApp } from '../store'
 import { ThemeGallery } from '../components/ThemeGallery'
 import { PageCanvas } from '../components/PageCanvas'
-import { PAGE_SIZES, THEMES, themeById } from '../lib/themes'
+import { PAGE_SIZES, REGIONS, themeById } from '../lib/themes'
 import { LanguagePicker } from '../components/Assistant'
 import type { Density } from '../lib/types'
 
-const OCCASIONS = ['All', ...Array.from(new Set(THEMES.map((t) => t.occasion)))]
+const REGION_FILTERS = ['All of India', ...REGIONS]
 
 const DENSITIES: Array<{ id: Density; label: string; hint: string }> = [
   { id: 'airy', label: 'Airy', hint: '1–3 photos a page' },
@@ -16,7 +16,7 @@ const DENSITIES: Array<{ id: Density; label: string; hint: string }> = [
 
 export function Design({ nav }: { nav: (hash: string) => void }) {
   const app = useApp()
-  const [occasion, setOccasion] = useState('All')
+  const [region, setRegion] = useState('All of India')
   const project = app.project
   if (!project) return null
   const theme = themeById(project.album.themeId)
@@ -29,8 +29,8 @@ export function Design({ nav }: { nav: (hash: string) => void }) {
         <h2>Album template</h2>
         <p className="hint">{theme.blurb}</p>
         <div className="filters" style={{ marginTop: 12 }}>
-          {OCCASIONS.map((o) => (
-            <button key={o} className={occasion === o ? 'on' : ''} onClick={() => setOccasion(o)}>
+          {REGION_FILTERS.map((o) => (
+            <button key={o} className={region === o ? 'on' : ''} onClick={() => setRegion(o)}>
               {o}
             </button>
           ))}
@@ -39,7 +39,7 @@ export function Design({ nav }: { nav: (hash: string) => void }) {
           project={project}
           photos={app.photos}
           value={project.album.themeId}
-          occasion={occasion === 'All' ? undefined : occasion}
+          region={region === 'All of India' ? undefined : region}
           onChange={(id) => app.updateAlbumOptions({ themeId: id })}
         />
       </div>

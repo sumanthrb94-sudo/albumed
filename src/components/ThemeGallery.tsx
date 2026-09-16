@@ -56,12 +56,12 @@ interface Props {
   photos: Photo[]
   value: string
   onChange: (themeId: string) => void
-  /** Show only these occasions; omit for all. */
-  occasion?: string
+  /** Show only templates from this region; omit for all. */
+  region?: string
 }
 
-export function ThemeGallery({ project, photos, value, onChange, occasion }: Props) {
-  const list = occasion ? THEMES.filter((t) => t.occasion === occasion) : THEMES
+export function ThemeGallery({ project, photos, value, onChange, region }: Props) {
+  const list = region ? THEMES.filter((t) => t.region === region) : THEMES
   return (
     <div className="theme-grid">
       {list.map((t) => (
@@ -76,7 +76,9 @@ export function ThemeGallery({ project, photos, value, onChange, occasion }: Pro
           <ThemeSwatch theme={t} project={project} photos={photos} />
           <div className="tmeta">
             <b>{t.name}</b>
-            <span>{t.occasion}</span>
+            <span>
+              {t.occasion} · {t.region}
+            </span>
           </div>
         </button>
       ))}

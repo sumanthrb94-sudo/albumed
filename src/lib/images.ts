@@ -5,6 +5,10 @@ import { getBlobs } from './db'
 
 export const THUMB_MAX = 640
 
+/** The true-detail sample kept alongside a compressed photo, so the customer
+ *  can see for themselves what the free tier costs them. */
+export const SAMPLE_PX = 560
+
 export interface Decoded {
   bitmap: ImageBitmap
   width: number
@@ -45,25 +49,87 @@ export interface PreparedImage {
   thumb: Blob
   width: number
   height: number
+  /** The dimensions of the photo as it came off the phone. */
+  sourceWidth: number
+  sourceHeight: number
+  /** A 1:1 crop at the original resolution — what the photo really looks like. */
+  sampleReal?: Blob
+  /** The same crop taken from the stored copy — what this plan will print. */
+  sampleStored?: Blob
 }
 
-/** Decode an uploaded file, bake in EXIF rotation, and build a thumbnail. */
-export async function prepareUpload(file: Blob): Promise<PreparedImage> {
+export interface IngestOptions {
+  /** Longest edge to keep. */
+  maxPx: number
+  /** JPEG quality to keep. */
+  quality: number
+  /** Also build the before/after detail pair. */
+  withSample?: boolean
+}
+
+/** Crops a square from the middle-upper part of the frame, where faces usually are. */
+function sampleRect(w: number, h: number, size: number) {
+  const side = Math.min(size, w, h)
+  return {
+    sx: Math.round((w - side) / 2),
+    sy: Math.round(Math.max(0, h * 0.38 - side / 2)),
+    side,
+  }
+}
+
+/** Decode an uploaded file, bake in EXIF rotation, and store it at the plan's quality. */
+export async function prepareUpload(file: Blob, opts: IngestOptions): Promise<PreparedImage> {
   const { bitmap, width, height } = await decode(file)
   try {
-    // Re-encode the full image so rotation is baked in and HEIC/huge files shrink.
-    const maxFull = 3000
-    const scale = Math.min(1, maxFull / Math.max(width, height))
+    // Re-encode so rotation is baked in and HEIC/huge files shrink.
+    const scale = Math.min(1, opts.maxPx / Math.max(width, height))
     const fullCanvas = canvasOf(Math.round(width * scale), Math.round(height * scale))
     fullCanvas.getContext('2d')!.drawImage(bitmap, 0, 0, fullCanvas.width, fullCanvas.height)
-    const full = await canvasToBlob(fullCanvas, 'image/jpeg', 0.92)
+    const full = await canvasToBlob(fullCanvas, 'image/jpeg', opts.quality)
 
     const ts = Math.min(1, THUMB_MAX / Math.max(width, height))
     const thumbCanvas = canvasOf(Math.round(width * ts), Math.round(height * ts))
     thumbCanvas.getContext('2d')!.drawImage(bitmap, 0, 0, thumbCanvas.width, thumbCanvas.height)
     const thumb = await canvasToBlob(thumbCanvas, 'image/jpeg', 0.8)
 
-    return { full, thumb, width: fullCanvas.width, height: fullCanvas.height }
+    let sampleReal: Blob | undefined
+    let sampleStored: Blob | undefined
+    if (opts.withSample) {
+      const { sx, sy, side } = sampleRect(width, height, SAMPLE_PX)
+      const realCanvas = canvasOf(side, side)
+      realCanvas.getContext('2d')!.drawImage(bitmap, sx, sy, side, side, 0, 0, side, side)
+      sampleReal = await canvasToBlob(realCanvas, 'image/jpeg', 0.95)
+
+      // The same patch as it survives in the stored copy, blown back up to match.
+      const storedBitmap = await createImageBitmap(full)
+      const storedCanvas = canvasOf(side, side)
+      const sctx = storedCanvas.getContext('2d')!
+      sctx.imageSmoothingQuality = 'high'
+      sctx.drawImage(
+        storedBitmap,
+        sx * scale,
+        sy * scale,
+        side * scale,
+        side * scale,
+        0,
+        0,
+        side,
+        side,
+      )
+      storedBitmap.close()
+      sampleStored = await canvasToBlob(storedCanvas, 'image/jpeg', 0.95)
+    }
+
+    return {
+      full,
+      thumb,
+      width: fullCanvas.width,
+      height: fullCanvas.height,
+      sourceWidth: width,
+      sourceHeight: height,
+      sampleReal,
+      sampleStored,
+    }
   } finally {
     bitmap.close()
   }
@@ -94,6 +160,13 @@ export function releaseThumbUrl(photoId: string): void {
 export async function fullUrl(photoId: string): Promise<string | null> {
   const rec = await getBlobs(photoId)
   return rec ? URL.createObjectURL(rec.full) : null
+}
+
+/** The two halves of the detail comparison, as object URLs the caller must revoke. */
+export async function sampleUrls(photoId: string): Promise<{ real: string; stored: string } | null> {
+  const rec = await getBlobs(photoId)
+  if (!rec?.sampleReal || !rec.sampleStored) return null
+  return { real: URL.createObjectURL(rec.sampleReal), stored: URL.createObjectURL(rec.sampleStored) }
 }
 
 /* ---------- bitmap cache used by the page renderer ---------- */
@@ -142,18 +215,18 @@ export const previewCache = new BitmapCache()
 /* ---------- procedural sample photos (for "try it without uploading") ---------- */
 
 const SAMPLE_SCENES: Array<{ label: string; hues: [number, number]; portrait: boolean }> = [
-  { label: 'Baraat', hues: [22, 42], portrait: false },
-  { label: 'Varmala', hues: [340, 15], portrait: true },
-  { label: 'Haldi', hues: [45, 55], portrait: false },
-  { label: 'Mehendi', hues: [95, 140], portrait: true },
-  { label: 'Sangeet', hues: [255, 295], portrait: false },
-  { label: 'Pheras', hues: [5, 30], portrait: true },
-  { label: 'Vidaai', hues: [200, 230], portrait: false },
+  { label: 'Pellikuthuru', hues: [45, 55], portrait: false },
+  { label: 'Snathakam', hues: [95, 140], portrait: true },
+  { label: 'Kashi Yatra', hues: [22, 42], portrait: false },
+  { label: 'Madhuparkam', hues: [340, 15], portrait: true },
+  { label: 'Jeelakarra Bellam', hues: [5, 30], portrait: true },
+  { label: 'Mangalsutra', hues: [350, 20], portrait: true },
+  { label: 'Talambralu', hues: [35, 60], portrait: false },
+  { label: 'Kanyadanam', hues: [15, 40], portrait: false },
+  { label: 'Appaginthalu', hues: [200, 230], portrait: false },
+  { label: 'Muggu', hues: [320, 10], portrait: false },
   { label: 'Reception', hues: [280, 330], portrait: true },
-  { label: 'Family', hues: [15, 40], portrait: false },
-  { label: 'Mandap', hues: [35, 60], portrait: true },
-  { label: 'Rangoli', hues: [320, 10], portrait: false },
-  { label: 'Dhol', hues: [180, 215], portrait: false },
+  { label: 'Sannai Melam', hues: [180, 215], portrait: false },
 ]
 
 /** Builds a recognisable placeholder "photo" so the whole flow can be tried offline. */
@@ -197,10 +270,46 @@ export async function makeSamplePhoto(index: number): Promise<{ blob: Blob; name
     ctx.fill()
   }
 
+  // Fine detail — zari thread, embroidery, small type. Smooth gradients survive
+  // compression untouched; this is the part that turns to mush, which is the
+  // whole point of the quality comparison.
+  const cx0 = w * 0.5
+  const cy0 = h * 0.42
+  ctx.save()
+  ctx.globalAlpha = 0.5
+  ctx.lineWidth = 1
+  for (let i = 0; i < 170; i++) {
+    const a = (i / 170) * Math.PI * 2
+    ctx.strokeStyle = i % 2 ? 'rgba(255,240,190,0.9)' : 'rgba(90,40,20,0.7)'
+    ctx.beginPath()
+    ctx.moveTo(cx0 + Math.cos(a) * w * 0.1, cy0 + Math.sin(a) * w * 0.1)
+    ctx.lineTo(cx0 + Math.cos(a) * w * 0.23, cy0 + Math.sin(a) * w * 0.23)
+    ctx.stroke()
+  }
+  for (let r = w * 0.11; r < w * 0.23; r += 3) {
+    ctx.strokeStyle = r % 6 < 3 ? 'rgba(255,245,210,0.55)' : 'rgba(60,25,15,0.4)'
+    ctx.beginPath()
+    ctx.arc(cx0, cy0, r, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+  // a woven grid, like the border of a sari
+  for (let x = 0; x < w; x += 4) {
+    ctx.strokeStyle = x % 8 < 4 ? 'rgba(255,238,180,0.35)' : 'rgba(70,30,15,0.25)'
+    ctx.beginPath()
+    ctx.moveTo(x, h * 0.62)
+    ctx.lineTo(x, h * 0.72)
+    ctx.stroke()
+  }
+  ctx.restore()
+
   ctx.fillStyle = 'rgba(255,248,230,0.92)'
   ctx.font = `600 ${Math.round(w * 0.05)}px Marcellus, Georgia, serif`
   ctx.textBaseline = 'bottom'
   ctx.fillText(`${scene.label} · sample`, w * 0.06, h * 0.95)
+  // deliberately small type, the first thing to go
+  ctx.font = `400 ${Math.round(w * 0.014)}px Mukta, system-ui, sans-serif`
+  ctx.fillStyle = 'rgba(255,250,235,0.85)'
+  ctx.fillText('fine detail · zari · embroidery · jewellery · fine print at 1.4%', w * 0.06, h * 0.975)
 
   const blob = await canvasToBlob(c, 'image/jpeg', 0.86)
   return { blob, name: `sample-${String(index + 1).padStart(2, '0')}-${scene.label.toLowerCase()}.jpg` }

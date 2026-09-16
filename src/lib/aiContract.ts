@@ -3,24 +3,50 @@
    Claude as the structured-output format, and both sides validate against them. */
 import { z } from 'zod'
 
-/** Ceremonies an Indian wedding album is usually organised around, South Indian first. */
+/** Ceremonies an Indian wedding album is organised around.
+ *  Telugu first — the studio's own tradition — then the rest of the country. */
 export const CEREMONIES = [
-  'nischayathartham', // engagement / betrothal
-  'pandhakaal', // pandal ceremony before the wedding
-  'mehendi',
-  'haldi', // pellikuthuru / pithi
-  'sangeet',
+  // Telugu (Andhra Pradesh & Telangana)
+  'nischitartham', // betrothal
+  'pellikuthuru', // turmeric ceremony for the bride
+  'pellikoduku', // the same for the groom
+  'snathakam',
   'kashi-yatra',
+  'madhuparkam',
+  'jeelakarra-bellam', // cumin and jaggery — the muhurtham moment
+  'mangalsutra-dharana',
+  'talambralu', // showering rice over each other
+  'kanyadanam',
+  'saptapadi',
+  'appaginthalu', // giving the bride away
+  'satyanarayana-vratam',
+  // Tamil, Kannada, Malayalam
+  'nischayathartham',
+  'pandhakaal',
   'maalai-maatral', // garland exchange
   'oonjal', // swing ceremony
-  'kanyadanam',
-  'muhurtham', // thaali / mangalsutra moment
-  'saptapadi',
+  'muhurtham',
   'nalangu',
+  'sadhya', // feast
+  // North, West and East India
+  'mehendi',
+  'haldi',
+  'sangeet',
+  'chooda', // Punjabi bangle ceremony
+  'baraat',
+  'varmala',
+  'pheras',
+  'anand-karaj', // Sikh wedding
+  'hastamelap', // Gujarati joining of hands
+  'antarpat', // Marathi curtain
+  'gaye-holud', // Bengali turmeric
+  'subho-drishti', // Bengali first look
+  'sindoor-daan',
+  'vidaai',
+  // Everything else an album needs
   'reception',
   'grihapravesham',
   'mandap-decor',
-  'sadhya', // feast
   'family-portrait',
   'candid',
   'other',
@@ -28,22 +54,43 @@ export const CEREMONIES = [
 export type Ceremony = (typeof CEREMONIES)[number]
 
 export const CEREMONY_LABELS: Record<Ceremony, string> = {
+  nischitartham: 'Nischitartham',
+  pellikuthuru: 'Pellikuthuru',
+  pellikoduku: 'Pellikoduku',
+  snathakam: 'Snathakam',
+  'kashi-yatra': 'Kashi Yatra',
+  madhuparkam: 'Madhuparkam',
+  'jeelakarra-bellam': 'Jeelakarra Bellam',
+  'mangalsutra-dharana': 'Mangalsutra Dharana',
+  talambralu: 'Talambralu',
+  kanyadanam: 'Kanyadanam',
+  saptapadi: 'Saptapadi',
+  appaginthalu: 'Appaginthalu',
+  'satyanarayana-vratam': 'Satyanarayana Vratam',
   nischayathartham: 'Nischayathartham',
   pandhakaal: 'Pandhakaal',
-  mehendi: 'Mehendi',
-  haldi: 'Haldi / Pellikuthuru',
-  sangeet: 'Sangeet',
-  'kashi-yatra': 'Kashi Yatra',
   'maalai-maatral': 'Maalai Maatral',
   oonjal: 'Oonjal',
-  kanyadanam: 'Kanyadanam',
   muhurtham: 'Muhurtham',
-  saptapadi: 'Saptapadi',
   nalangu: 'Nalangu',
+  sadhya: 'Sadhya',
+  mehendi: 'Mehendi',
+  haldi: 'Haldi',
+  sangeet: 'Sangeet',
+  chooda: 'Chooda',
+  baraat: 'Baraat',
+  varmala: 'Varmala',
+  pheras: 'Pheras',
+  'anand-karaj': 'Anand Karaj',
+  hastamelap: 'Hastamelap',
+  antarpat: 'Antarpat',
+  'gaye-holud': 'Gaye Holud',
+  'subho-drishti': 'Subho Drishti',
+  'sindoor-daan': 'Sindoor Daan',
+  vidaai: 'Vidaai',
   reception: 'Reception',
   grihapravesham: 'Grihapravesham',
   'mandap-decor': 'Mandap & decor',
-  sadhya: 'Sadhya',
   'family-portrait': 'Family portraits',
   candid: 'Candid moments',
   other: 'Other',
@@ -61,16 +108,31 @@ export const PHOTO_ISSUES = [
   'cluttered-background',
 ] as const
 
-export const LANGUAGES = ['english', 'tamil', 'telugu', 'kannada', 'malayalam', 'hindi'] as const
+export const LANGUAGES = [
+  'telugu',
+  'english',
+  'tamil',
+  'kannada',
+  'malayalam',
+  'hindi',
+  'bengali',
+  'marathi',
+  'gujarati',
+  'punjabi',
+] as const
 export type Language = (typeof LANGUAGES)[number]
 
 export const LANGUAGE_LABELS: Record<Language, string> = {
+  telugu: 'తెలుగు Telugu',
   english: 'English',
   tamil: 'தமிழ் Tamil',
-  telugu: 'తెలుగు Telugu',
   kannada: 'ಕನ್ನಡ Kannada',
   malayalam: 'മലയാളം Malayalam',
   hindi: 'हिन्दी Hindi',
+  bengali: 'বাংলা Bengali',
+  marathi: 'मराठी Marathi',
+  gujarati: 'ગુજરાતી Gujarati',
+  punjabi: 'ਪੰਜਾਬੀ Punjabi',
 }
 
 /* ---------------- curate ---------------- */
