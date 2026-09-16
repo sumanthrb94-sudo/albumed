@@ -1,1 +1,1 @@
-export { healthHandler as default } from './_send'
+export { healthHandler as default } from '../server/vercel'

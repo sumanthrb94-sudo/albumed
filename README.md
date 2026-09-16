@@ -210,6 +210,7 @@ tests/
   applyOps.test.ts  the edit applier, including malformed model output
   layout.test.ts    template geometry, chapters, featured pages, determinism
   plan.test.ts      plan limits never regress, and re-import matching
+  build.test.ts     the deployed shape: absolute assets, CSP, api/ routes
   api.test.ts       the server end to end against a mock upstream
   vercel.test.ts    the serverless adapters, invoked the way the platform does
   mock-anthropic.mjs
@@ -246,6 +247,11 @@ and cache headers, and gives each AI function a 60-second budget — a vision pa
 photos does not fit in the 10-second default. `npx vercel dev` runs the functions and the client
 together locally.
 
+Everything in `api/` is a route and nothing else; the adapter they share lives in
+`server/vercel.ts`. The client build uses an absolute base so the SPA rewrite can serve
+`index.html` from any path and the assets still resolve — `tests/build.test.ts` holds both of
+those, along with the no-inline-script rule the CSP depends on.
+
 Two things to know about the serverless shape: the rate limiter is per instance, so put a real one
 (KV, Upstash, the platform's) in front if you need a hard quota; and Vercel caps request bodies at
 4.5 MB, which is why the review pass batches photos (`ALBUMED_CURATE_BATCH`, six by default — about
@@ -278,7 +284,7 @@ want to trade some judgement for cost.
 ## Tests
 
 ```bash
-npm test     # 51 unit + integration tests, no API key needed
+npm test     # 60 unit + integration tests, no API key needed
 npm run demo # the full browser demo, also no API key needed
 ```
 

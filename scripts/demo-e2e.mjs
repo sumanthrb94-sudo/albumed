@@ -102,6 +102,16 @@ try {
   await page.waitForSelector('text=Turn phone photos into a real album')
   await shot('01-home')
 
+  // A deep URL is served index.html by the rewrite; the assets must still load,
+  // which they only do if the build uses absolute paths.
+  const deep = await page.goto(`${BASE}/p/does-not-exist/album`, { waitUntil: 'networkidle' })
+  if (!deep.ok()) fail('a deep link did not return the app')
+  await page.waitForSelector('.topbar', { timeout: 15000 })
+  const styled = await page.evaluate(() => getComputedStyle(document.querySelector('.topbar')).backgroundImage !== 'none')
+  if (!styled) fail('assets did not resolve on a deep link — is the build base relative?')
+  console.log('  ✓ deep links load the app with its assets')
+  await page.goto(BASE, { waitUntil: 'networkidle' })
+
   step(2, 'Create a Telugu wedding album (free plan)')
   await page.click('text=+ New album')
   await page.fill('input[placeholder="Maa Pelli"]', 'Maa Pelli')

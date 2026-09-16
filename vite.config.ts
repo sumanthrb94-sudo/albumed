@@ -5,7 +5,9 @@ const API_TARGET = process.env.ALBUMED_API ?? 'http://localhost:8787'
 
 export default defineConfig({
   plugins: [react()],
-  base: './',
+  // Absolute, so the SPA rewrite can serve index.html from any path and the
+  // assets still resolve. A relative base breaks on /p/<id>/<tab> deep links.
+  base: '/',
   build: {
     target: 'es2020',
     chunkSizeWarningLimit: 1200,

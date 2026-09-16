@@ -92,7 +92,7 @@ function Shell() {
           onClick={() => nav('#/')}
           aria-label="Albumed home"
         >
-          <img src="./icon-192.png" alt="" />
+          <img src="/icon-192.png" alt="" />
           <div style={{ textAlign: 'left' }}>
             <h1>Albumed</h1>
             <div className="sub">एल्बम बनाइए</div>
