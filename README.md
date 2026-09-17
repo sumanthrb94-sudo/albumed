@@ -152,18 +152,22 @@ locally so the difference can be seen. Every limit lives in that one file.
 
 | Region | Templates |
 | --- | --- |
-| **Andhra & Telangana** | Godavari Pellikuthuru, Kalyana Mandapam, Pattu & Jasmine |
-| Tamil Nadu | Kanjeevaram Muhurtham |
-| Karnataka | Mysore Silk |
+| **Andhra & Telangana** | Godavari Pellikuthuru, Kalyana Mandapam, Pattu & Jasmine, Tirupati Saffron, Seemantham |
+| Tamil Nadu | Kanjeevaram Muhurtham, Chettinad Athangudi |
+| Karnataka | Mysore Silk, Kodava Coffee |
 | Kerala | Kerala Kasavu |
+| South India | Dakshin Kalyanam, Upanayanam, Shashtiabdapoorthi |
 | Bengal | Lal Paar |
+| Odisha | Sambalpuri Ikat |
+| North East | Assam Muga |
+| Bihar & Jharkhand | Mithila Madhubani |
 | Maharashtra | Paithani Peacock |
 | Punjab | Phulkari |
-| Gujarat & Rajasthan | Bandhani |
-| North India | Royal Vivah, Marigold Mandap |
-| Pan-India | Haldi Sunshine, Mehendi Night, Sangeet Midnight, Sagai Rose, Ivory Minimal, Stage Reception, Naamkaran Pastel, Birthday Confetti, Griha Pravesh, Diwali Diya |
+| Gujarat & Rajasthan | Bandhani, Rajputana Blue |
+| North India | Royal Vivah, Marigold Mandap, Awadhi Chikankari |
+| Pan-India | Editorial Mono, Haldi Sunshine, Mehendi Night, Sangeet Midnight, Sagai Rose, Ivory Minimal, Stage Reception, Naamkaran Pastel, Birthday Confetti, Griha Pravesh, Diwali Diya |
 
-Twenty-three in all. Every one is a palette, a type pairing, a frame shape (temple arch, rounded,
+Thirty-five in all — `npm run templates` renders every cover into one contact sheet. Every one is a palette, a type pairing, a frame shape (temple arch, rounded,
 circle) and a motif painted on canvas around each page — muggu and kolam corners, mandalas, paisley
 vines, a marigold toran, rangoli, diyas, pookalam, a kasavu weave, Bengali alpona, a Paithani
 peacock, phulkari stitching, bandhani dots. Nothing is a bitmap, so it stays sharp at 600 dpi.

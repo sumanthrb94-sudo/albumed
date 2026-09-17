@@ -348,6 +348,41 @@ function drawBorder(ctx: Ctx, W: number, H: number, theme: Theme, u: number, see
       M.bandhaniField(ctx, 0, 0, W, m, u, theme, rand)
       M.bandhaniField(ctx, 0, H - m, W, m, u, theme, rand)
       break
+    case 'madhubani':
+      for (const [cx, cy, flipX, flipY] of [
+        [inset, inset, 1, 1],
+        [W - inset, inset, -1, 1],
+        [inset, H - inset, 1, -1],
+        [W - inset, H - inset, -1, -1],
+      ] as const) {
+        ctx.save()
+        ctx.translate(cx, cy)
+        ctx.scale(flipX, flipY)
+        M.madhubaniCorner(ctx, corner * 0.8, theme)
+        ctx.restore()
+      }
+      break
+    case 'chikan':
+      M.chikanRun(ctx, inset, W - inset, m * 0.55, u, theme)
+      M.chikanRun(ctx, inset, W - inset, H - m * 0.55, u, theme)
+      break
+    case 'ikat':
+      M.ikatBand(ctx, 0, m * 0.2, W, u, theme)
+      M.ikatBand(ctx, 0, H - m * 0.2 - u * 1.5, W, u, theme)
+      break
+    case 'tile':
+      for (const [cx, cy] of [
+        [inset, inset],
+        [W - inset - corner * 0.7, inset],
+        [inset, H - inset - corner * 0.7],
+        [W - inset - corner * 0.7, H - inset - corner * 0.7],
+      ] as const) {
+        ctx.save()
+        ctx.translate(cx, cy)
+        M.tileCorner(ctx, corner * 0.7, theme)
+        ctx.restore()
+      }
+      break
   }
 }
 
@@ -508,11 +543,21 @@ function renderCover(ctx: Ctx, W: number, H: number, opts: RenderOpts, theme: Th
     })
   }
 
-  // hero photo
-  const ph = H * 0.38
-  const pw = Math.min(W * 0.62, ph * 0.9)
+  // Hero photo, sized to the photograph's own shape rather than forced into a
+  // fixed box — a landscape frame was being squeezed into a portrait slot.
+  const slotPhoto = opts.page.slots[0]
+  const heroImg = slotPhoto ? opts.cache.get(slotPhoto.photoId, opts.quality) : null
+  const heroAspect = heroImg ? heroImg.width / heroImg.height : 1
+  const maxW = W * 0.72
+  const maxH = H * 0.44
+  let pw = maxW
+  let ph = pw / heroAspect
+  if (ph > maxH) {
+    ph = maxH
+    pw = ph * heroAspect
+  }
   const px = cx - pw / 2
-  const py = H * 0.21
+  const py = H * 0.2 + (maxH - ph) / 2
   const slot = opts.page.slots[0]
   if (slot) {
     drawSlot(

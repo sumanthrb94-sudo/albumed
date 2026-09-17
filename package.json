@@ -18,7 +18,8 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "build:web": "tsc -b && vite build",
     "screenshots": "node scripts/screenshots.mjs",
-    "samples": "node --env-file=.env scripts/make-samples.mjs"
+    "samples": "node --env-file=.env scripts/make-samples.mjs",
+    "templates": "node scripts/template-sheet.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",

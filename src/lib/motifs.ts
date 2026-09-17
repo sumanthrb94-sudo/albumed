@@ -422,4 +422,107 @@ export function bandhaniField(
   ctx.restore()
 }
 
+/** Madhubani: the double-outlined fish-and-vine line art of Mithila. */
+export function madhubaniCorner(ctx: Ctx, s: number, theme: Theme) {
+  ctx.save()
+  ctx.strokeStyle = theme.palette.ink
+  ctx.lineWidth = Math.max(0.6, s * 0.018)
+  ctx.lineJoin = 'round'
+  // a fish, drawn twice for the characteristic double outline
+  for (const inset of [0, s * 0.06]) {
+    ctx.beginPath()
+    ctx.moveTo(s * 0.15 + inset, s * 0.5)
+    ctx.quadraticCurveTo(s * 0.5, s * 0.15 + inset, s * 0.9 - inset, s * 0.5)
+    ctx.quadraticCurveTo(s * 0.5, s * 0.85 - inset, s * 0.15 + inset, s * 0.5)
+    ctx.stroke()
+  }
+  ctx.beginPath()
+  ctx.moveTo(s * 0.9, s * 0.5)
+  ctx.lineTo(s * 1.12, s * 0.32)
+  ctx.lineTo(s * 1.12, s * 0.68)
+  ctx.closePath()
+  ctx.stroke()
+  ctx.fillStyle = theme.palette.accent
+  ctx.beginPath()
+  ctx.arc(s * 0.32, s * 0.46, s * 0.045, 0, Math.PI * 2)
+  ctx.fill()
+  // hatching, the way the cloth is filled
+  ctx.globalAlpha = 0.5
+  ctx.lineWidth = Math.max(0.4, s * 0.008)
+  for (let i = 0; i < 7; i++) {
+    const x = s * (0.3 + i * 0.08)
+    ctx.beginPath()
+    ctx.moveTo(x, s * 0.34)
+    ctx.lineTo(x, s * 0.66)
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+/** Chikankari: white shadow-work, read as tone rather than colour. */
+export function chikanRun(ctx: Ctx, x0: number, x1: number, y: number, u: number, theme: Theme) {
+  ctx.save()
+  ctx.strokeStyle = '#ffffff'
+  ctx.fillStyle = '#ffffff'
+  ctx.lineWidth = Math.max(0.5, u * 0.07)
+  ctx.shadowColor = theme.palette.inkSoft
+  ctx.shadowBlur = u * 0.5
+  const step = u * 3.4
+  for (let x = x0; x < x1; x += step) {
+    ctx.globalAlpha = 0.85
+    ctx.beginPath()
+    ctx.ellipse(x, y, u * 0.55, u * 0.9, Math.PI / 5, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.globalAlpha = 0.5
+    ctx.beginPath()
+    ctx.arc(x + step / 2, y, u * 0.16, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.restore()
+}
+
+/** Ikat: the feathered chevron of a Sambalpuri weave. */
+export function ikatBand(ctx: Ctx, x: number, y: number, w: number, u: number, theme: Theme) {
+  ctx.save()
+  const colors = [theme.palette.accent, theme.palette.ink, theme.palette.gold]
+  const step = u * 1.6
+  for (let i = 0; x + i * step < x + w; i++) {
+    ctx.fillStyle = colors[i % colors.length]
+    ctx.globalAlpha = 0.8
+    const cx = x + i * step
+    // the blur of a resist-dyed edge, done as three stacked slivers
+    for (let k = 0; k < 3; k++) {
+      ctx.globalAlpha = 0.8 - k * 0.22
+      ctx.beginPath()
+      ctx.moveTo(cx, y + k * u * 0.18)
+      ctx.lineTo(cx + step * 0.5, y + u * 1.1 + k * u * 0.18)
+      ctx.lineTo(cx + step, y + k * u * 0.18)
+      ctx.lineTo(cx + step * 0.5, y + u * 0.5 + k * u * 0.18)
+      ctx.closePath()
+      ctx.fill()
+    }
+  }
+  ctx.restore()
+}
+
+/** Athangudi tile: the geometric floor of a Chettinad house. */
+export function tileCorner(ctx: Ctx, s: number, theme: Theme) {
+  ctx.save()
+  ctx.strokeStyle = theme.palette.gold
+  ctx.lineWidth = Math.max(0.5, s * 0.02)
+  ctx.strokeRect(0, 0, s, s)
+  ctx.beginPath()
+  ctx.moveTo(0, s / 2)
+  ctx.quadraticCurveTo(s / 2, s / 2, s / 2, 0)
+  ctx.moveTo(s, s / 2)
+  ctx.quadraticCurveTo(s / 2, s / 2, s / 2, s)
+  ctx.stroke()
+  ctx.fillStyle = theme.palette.accent
+  ctx.globalAlpha = 0.6
+  ctx.beginPath()
+  ctx.arc(s / 2, s / 2, s * 0.12, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
 export const motifName = (m: MotifKind): string => m
