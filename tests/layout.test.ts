@@ -1,6 +1,7 @@
 import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
 import { generatePages, TEMPLATES, templatesFor } from '../src/lib/layout'
+import { REGIONS, THEMES } from '../src/lib/themes'
 import type { AlbumChapter, Photo } from '../src/lib/types'
 
 const photo = (id: string, portrait = false): Photo => ({
@@ -123,4 +124,33 @@ test('cover and closing pages are added when asked for', () => {
   const pages = generatePages({ ...base, photos: many(4), includeCover: true, includeClosing: true })
   assert.equal(pages[0].kind, 'cover')
   assert.equal(pages[pages.length - 1].kind, 'closing')
+})
+
+/* The cover is the whole first impression. One layout recoloured thirty-five
+   times is a template; these guard the catalogue against drifting back to it. */
+
+test('every template names a cover treatment and a material', () => {
+  for (const t of THEMES) {
+    assert.ok(
+      ['fullbleed', 'window', 'band', 'editorial', 'foil', 'duotone'].includes(t.cover),
+      `${t.name} has no cover treatment`,
+    )
+    assert.ok(['leather', 'linen', 'silk', 'paper'].includes(t.material), `${t.name} has no material`)
+  }
+})
+
+test('the catalogue is not one treatment wearing thirty-five colours', () => {
+  const byCover = new Map<string, number>()
+  for (const t of THEMES) byCover.set(t.cover, (byCover.get(t.cover) ?? 0) + 1)
+  assert.ok(byCover.size >= 5, `only ${byCover.size} cover treatments in the whole catalogue`)
+  for (const [cover, n] of byCover) {
+    assert.ok(n <= THEMES.length * 0.4, `${cover} is ${n} of ${THEMES.length} templates — too much of one idea`)
+    assert.ok(n >= 2, `${cover} is used ${n} time(s); a treatment used once is an accident`)
+  }
+})
+
+test('the region a template belongs to is one the picker can filter by', () => {
+  for (const t of THEMES) {
+    assert.ok((REGIONS as readonly string[]).includes(t.region), `${t.name} is in "${t.region}", which is not a region`)
+  }
 })

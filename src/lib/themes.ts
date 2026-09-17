@@ -37,6 +37,23 @@ export interface Palette {
   coverInk: string
 }
 
+/** How a cover is composed. One layout recoloured thirty-five times reads as a
+ *  template; a real studio's catalogue has distinct cover treatments, and the
+ *  treatment is most of what makes an album look expensive.
+ *
+ *  - `fullbleed`  the photograph edge to edge, type in foil over a scrim
+ *  - `window`     heirloom: a large framed window in a textured colour field
+ *  - `band`       full-bleed photograph with a colour band across the foot
+ *  - `editorial`  asymmetric split — photograph right, type block left
+ *  - `foil`       no photograph at all: fabric and a deep foil-stamped motif
+ *  - `duotone`    the photograph printed in two inks, with display type over it
+ */
+export type CoverStyle = 'fullbleed' | 'window' | 'band' | 'editorial' | 'foil' | 'duotone'
+
+/** What the cover board imitates. Indian studios sell the material as much as
+ *  the design: Italian leather, linen, raw silk, handmade paper. */
+export type CoverMaterial = 'leather' | 'linen' | 'silk' | 'paper'
+
 export interface Theme {
   id: string
   name: string
@@ -57,6 +74,9 @@ export interface Theme {
   titleFont: string
   bodyFont: string
   scriptFont: string
+  /** Filled in below, so the catalogue of cover treatments reads in one place. */
+  cover: CoverStyle
+  material: CoverMaterial
 }
 
 const SERIF = "'Cormorant Garamond', Georgia, 'Times New Roman', serif"
@@ -81,7 +101,61 @@ const SCRIPT_FONTS: Record<Language, string> = {
 export const scriptFontFor = (language: Language = 'english'): string =>
   SCRIPT_FONTS[language] ?? SCRIPT_FONTS.english
 
-export const THEMES: Theme[] = [
+/* The cover treatment and the material each template is cut from. Kept as one
+   table rather than a field on every object, so the catalogue can be read — and
+   balanced — at a glance. Anything missing falls back to the heirloom window. */
+const COVERS: Record<string, [CoverStyle, CoverMaterial]> = {
+  // Andhra & Telangana — home ground, so it carries the widest range.
+  godavari: ['window', 'silk'],            // Godavari Pellikuthuru
+  kalyanamandapam: ['fullbleed', 'leather'], // Kalyana Mandapam
+  'pattu-jasmine': ['band', 'silk'],       // Pattu & Jasmine
+  'tirupati-gold': ['foil', 'leather'],    // Tirupati Saffron
+  seemantham: ['editorial', 'linen'],
+
+  // South India
+  'dakshin-temple': ['fullbleed', 'silk'], // Dakshin Kalyanam
+  upanayanam: ['window', 'paper'],
+  shashtiabdapoorthi: ['band', 'leather'],
+
+  // Tamil Nadu, Karnataka, Kerala
+  kanjeevaram: ['fullbleed', 'silk'],      // Kanjeevaram Muhurtham
+  'chettinad-tile': ['foil', 'leather'],   // Chettinad Athangudi
+  'mysore-silk': ['window', 'silk'],
+  'coorg-green': ['editorial', 'leather'], // Kodava Coffee
+  kasavu: ['foil', 'linen'],               // Kerala Kasavu
+
+  // West
+  bandhani: ['band', 'silk'],
+  'rajputana-blue': ['window', 'leather'],
+  paithani: ['fullbleed', 'silk'],         // Paithani Peacock
+  phulkari: ['band', 'linen'],
+
+  // North
+  'vivah-gold': ['window', 'leather'],     // Royal Vivah
+  'marigold-mandap': ['fullbleed', 'silk'],
+  'awadhi-chikan': ['foil', 'linen'],      // Awadhi Chikankari
+
+  // East and North East
+  'bengali-lal': ['band', 'silk'],         // Lal Paar
+  'sambalpuri-ikat': ['editorial', 'linen'],
+  madhubani: ['window', 'paper'],          // Mithila Madhubani
+  'muga-silk': ['editorial', 'silk'],      // Assam Muga
+
+  // Pan-India
+  'editorial-mono': ['duotone', 'paper'],
+  'reception-ivory': ['foil', 'paper'],    // Ivory Minimal
+  'stage-reception': ['fullbleed', 'leather'],
+  'haldi-sun': ['band', 'linen'],          // Haldi Sunshine
+  'mehendi-green': ['duotone', 'silk'],    // Mehendi Night
+  'sangeet-night': ['fullbleed', 'leather'], // Sangeet Midnight
+  'sagai-rose': ['editorial', 'silk'],
+  naamkaran: ['window', 'linen'],          // Naamkaran Pastel
+  'birthday-confetti': ['band', 'paper'],
+  'griha-pravesh': ['window', 'paper'],
+  'diwali-diya': ['duotone', 'leather'],
+}
+
+const RAW_THEMES: Array<Omit<Theme, 'cover' | 'material'>> = [
   {
     id: 'tirupati-gold',
     region: 'Andhra & Telangana',
@@ -1086,6 +1160,12 @@ export const REGIONS = [
   'South India',
   'Pan-India',
 ] as const
+
+export const THEMES: Theme[] = RAW_THEMES.map((t) => ({
+  ...t,
+  cover: COVERS[t.id]?.[0] ?? 'window',
+  material: COVERS[t.id]?.[1] ?? 'linen',
+}))
 
 export const PAGE_SIZES: PageSizeSpec[] = [
   { id: 'sheet-12x36', label: 'Lay-flat spread 12 × 36 in', w: 36, h: 12 },
