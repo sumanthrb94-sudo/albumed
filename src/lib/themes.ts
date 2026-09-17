@@ -745,6 +745,8 @@ export const REGIONS = [
 ] as const
 
 export const PAGE_SIZES: PageSizeSpec[] = [
+  { id: 'sheet-12x36', label: 'Lay-flat spread 12 × 36 in', w: 36, h: 12 },
+  { id: 'sheet-12x18', label: 'Album sheet 12 × 18 in', w: 18, h: 12 },
   { id: 'sq8', label: 'Square 8 × 8 in', w: 8, h: 8 },
   { id: 'sq12', label: 'Square 12 × 12 in (lay-flat)', w: 12, h: 12 },
   { id: 'land-a4', label: 'Landscape A4 (11.7 × 8.3 in)', w: 11.69, h: 8.27 },

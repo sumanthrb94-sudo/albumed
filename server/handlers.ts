@@ -3,8 +3,9 @@
    Two front ends call into here: `server/index.ts` (the standalone Node server
    used for Docker and self-hosting) and `api/*.ts` (Vercel serverless
    functions). Keeping the logic here means both behave identically. */
-import { aiConfigured, AiError, buildStory, curateBatch, CURATE_BATCH, editAlbum, MODEL } from './claude.js'
-import { demoCurate, demoEdit, demoMode, demoStory } from './demoAi.js'
+import { AiError, CURATE_BATCH } from './claude.js'
+import { demoCurate, demoEdit, demoStory } from './demoAi.js'
+import { live, modelLabel, providerId } from './provider.js'
 import type { AiStatus, CurateRequest, EditRequest, StoryRequest } from '../src/lib/aiContract.js'
 
 export interface ApiResponse {
@@ -48,18 +49,17 @@ export interface HealthBody extends AiStatus {
 }
 
 export function health(): ApiResponse {
-  // A real key always wins: demo mode is a fallback, never an override.
-  const live = aiConfigured()
-  const demo = !live && demoMode()
+  const provider = providerId()
+  const demo = provider === 'demo'
   const body: HealthBody = {
     ok: true,
-    enabled: live || demo,
+    enabled: provider !== 'off',
     demo,
-    model: live ? MODEL : demo ? 'demo mode — scripted' : MODEL,
+    model: modelLabel(),
     batch: CURATE_BATCH,
-    ...(live || demo
-      ? {}
-      : { reason: 'Set ANTHROPIC_API_KEY on the server to turn on the album assistant.' }),
+    ...(provider === 'off'
+      ? { reason: 'Set GEMINI_API_KEY (or ANTHROPIC_API_KEY) on the server to turn on the album assistant.' }
+      : {}),
   }
   return { status: 200, body }
 }
@@ -96,18 +96,22 @@ async function demoRoute(route: AiRoute, body: unknown): Promise<ApiResponse> {
 }
 
 export async function aiRoute(route: AiRoute, body: unknown, clientKey: string): Promise<ApiResponse> {
-  if (!aiConfigured() && demoMode()) {
+  const provider = providerId()
+  if (provider === 'demo') {
     if (rateLimited(`${clientKey}:${route}`)) {
       return { status: 429, body: { error: 'Too many requests. Give it a minute.' }, headers: { 'retry-after': '60' } }
     }
     return demoRoute(route, body)
   }
-  if (!aiConfigured()) {
+  if (provider === 'off') {
     return {
       status: 503,
-      body: { error: 'The album assistant is switched off. Set ANTHROPIC_API_KEY on the server to enable it.' },
+      body: {
+        error: 'The album assistant is switched off. Set GEMINI_API_KEY on the server to enable it.',
+      },
     }
   }
+  const ai = live()
   if (rateLimited(`${clientKey}:${route}`)) {
     return {
       status: 429,
@@ -125,21 +129,26 @@ export async function aiRoute(route: AiRoute, body: unknown, clientKey: string):
         if (r.photos.length > CURATE_BATCH) {
           throw new AiError(`Send at most ${CURATE_BATCH} photos per request.`, 400)
         }
-        const out = await curateBatch(r)
-        log('info', 'curate', { photos: r.photos.length, verdicts: out.verdicts.length, ms: Date.now() - started })
+        const out = await ai.curateBatch(r)
+        log('info', 'curate', {
+          provider,
+          photos: r.photos.length,
+          verdicts: out.verdicts.length,
+          ms: Date.now() - started,
+        })
         return { status: 200, body: out }
       }
       case 'story': {
         const r = body as StoryRequest
         if (!Array.isArray(r?.photos) || !r.photos.length) throw new AiError('No photos in the request.', 400)
-        const out = await buildStory(r)
+        const out = await ai.buildStory(r)
         log('info', 'story', { photos: r.photos.length, chapters: out.chapters.length, ms: Date.now() - started })
         return { status: 200, body: out }
       }
       case 'edit': {
         const r = body as EditRequest
         if (!r?.instruction?.trim()) throw new AiError('Say what you would like changed.', 400)
-        const out = await editAlbum(r)
+        const out = await ai.editAlbum(r)
         log('info', 'edit', { ops: out.ops.length, ms: Date.now() - started })
         return { status: 200, body: out }
       }

@@ -4,7 +4,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { createReadStream, existsSync, statSync } from 'node:fs'
 import { extname, join, normalize, resolve } from 'node:path'
-import { aiConfigured, AiError, MODEL } from './claude.js'
+import { AiError } from './claude.js'
+import { modelLabel, providerId } from './provider.js'
 import { aiRoute, CSP, health, log, SECURITY_HEADERS, type AiRoute } from './handlers.js'
 
 const PORT = Number(process.env.PORT ?? 8787)
@@ -133,7 +134,7 @@ const server = createServer((req, res) => {
 server.listen(PORT, HOST, () => {
   log('info', 'listening', {
     url: `http://${HOST}:${PORT}`,
-    ai: aiConfigured() ? MODEL : 'disabled (no ANTHROPIC_API_KEY)',
+    ai: `${providerId()} (${modelLabel()})`,
     dist: existsSync(DIST) ? DIST : 'missing',
   })
 })

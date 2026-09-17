@@ -212,10 +212,42 @@ export class BitmapCache {
 /** Shared cache for on-screen previews (thumbnails only — cheap to hold). */
 export const previewCache = new BitmapCache()
 
-/* ---------- procedural sample photos (for "try it without uploading") ---------- */
+/* ---------- sample photos (for "try it without uploading") ----------
+
+   Real photographs first: the quality comparison only means something on skin,
+   zari and jewellery, which is exactly what a drawn shape cannot show. These
+   ship with the app and are generated, not taken — no real family is in them.
+   The procedural set below fills in beyond what we have. */
+
+interface RealSample {
+  file: string
+  label: string
+}
+
+const REAL_SAMPLES: RealSample[] = [
+  { file: 'samples/01-pellikuthuru.jpg', label: 'Pellikuthuru' },
+  { file: 'samples/02-jeelakarra-bellam.jpg', label: 'Jeelakarra Bellam' },
+  { file: 'samples/03-talambralu.jpg', label: 'Talambralu' },
+]
+
+async function loadRealSample(i: number): Promise<{ blob: Blob; name: string } | null> {
+  const sample = REAL_SAMPLES[i]
+  if (!sample) return null
+  try {
+    const res = await fetch(`${import.meta.env.BASE_URL}${sample.file}`)
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return { blob, name: `${sample.label.toLowerCase().replace(/\s+/g, '-')}.jpg` }
+  } catch {
+    // Offline, or the file was not deployed — fall back to a drawn one.
+    return null
+  }
+}
+
+/* ---------- procedural sample photos ---------- */
 
 const SAMPLE_SCENES: Array<{ label: string; hues: [number, number]; portrait: boolean }> = [
-  { label: 'Pellikuthuru', hues: [45, 55], portrait: false },
+  // Indices 0-2 are covered by the real photographs above; these continue the day.
   { label: 'Snathakam', hues: [95, 140], portrait: true },
   { label: 'Kashi Yatra', hues: [22, 42], portrait: false },
   { label: 'Madhuparkam', hues: [340, 15], portrait: true },
@@ -229,8 +261,15 @@ const SAMPLE_SCENES: Array<{ label: string; hues: [number, number]; portrait: bo
   { label: 'Sannai Melam', hues: [180, 215], portrait: false },
 ]
 
-/** Builds a recognisable placeholder "photo" so the whole flow can be tried offline. */
+/** A real photograph where we have one, a drawn stand-in otherwise. */
 export async function makeSamplePhoto(index: number): Promise<{ blob: Blob; name: string }> {
+  const real = await loadRealSample(index)
+  if (real) return real
+  return drawSamplePhoto(index)
+}
+
+/** Builds a recognisable placeholder "photo" so the whole flow can be tried offline. */
+async function drawSamplePhoto(index: number): Promise<{ blob: Blob; name: string }> {
   const scene = SAMPLE_SCENES[index % SAMPLE_SCENES.length]
   const w = scene.portrait ? 1200 : 1600
   const h = scene.portrait ? 1600 : 1200
@@ -316,3 +355,4 @@ export async function makeSamplePhoto(index: number): Promise<{ blob: Blob; name
 }
 
 export const SAMPLE_COUNT = SAMPLE_SCENES.length
+export const REAL_SAMPLE_COUNT = REAL_SAMPLES.length
