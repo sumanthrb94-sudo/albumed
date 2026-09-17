@@ -118,6 +118,8 @@ export interface Rect {
 export interface Slot extends Rect {
   photoId: string
   shape?: SlotShape
+  /** Set by the painter when the page runs its photographs to the trim. */
+  bled?: boolean
 }
 
 export type PageKind = 'cover' | 'chapter' | 'photos' | 'closing'
@@ -134,6 +136,8 @@ export interface AlbumPage {
   blurb?: string
   /** The chapter this page belongs to, when the album has chapters. */
   chapterId?: string
+  /** The photographs run to the trim — no margin, no border, no hairline. */
+  bleed?: boolean
 }
 
 export interface Album {

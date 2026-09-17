@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
 import { generatePages, TEMPLATES, templatesFor } from '../src/lib/layout'
 import { REGIONS, THEMES } from '../src/lib/themes'
+import { shade, withAlpha } from '../src/lib/render'
 import type { AlbumChapter, Photo } from '../src/lib/types'
 
 const photo = (id: string, portrait = false): Photo => ({
@@ -153,4 +154,34 @@ test('the region a template belongs to is one the picker can filter by', () => {
   for (const t of THEMES) {
     assert.ok((REGIONS as readonly string[]).includes(t.region), `${t.name} is in "${t.region}", which is not a region`)
   }
+})
+
+/* A colour helper that returns `rgb(...)` looks fine until something appends a
+   hex alpha to it, at which point every gradient stop built that way throws and
+   the page fails to paint. That shipped once; it does not ship twice. */
+
+test('shade returns a hex colour, whatever it is given', () => {
+  for (const [hex, t] of [
+    ['#7a1220', -0.62],
+    ['#fdf8f0', 0.4],
+    ['#000000', -0.9],
+    ['#ffffff', 0.9],
+    ['c8972f', 0],
+  ] as Array<[string, number]>) {
+    assert.match(shade(hex, t), /^#[0-9a-f]{6}$/, `${hex} @ ${t}`)
+  }
+})
+
+test('shade clamps rather than wrapping past black or white', () => {
+  assert.equal(shade('#ffffff', 1), '#ffffff')
+  assert.equal(shade('#000000', -1), '#000000')
+})
+
+test('withAlpha builds a colour the canvas can parse', () => {
+  assert.equal(withAlpha('#7a1220', 0.8), 'rgba(122, 18, 32, 0.8)')
+  assert.equal(withAlpha('#7a1220', 5), 'rgba(122, 18, 32, 1)')
+})
+
+test('a shaded colour survives being given an alpha', () => {
+  assert.match(withAlpha(shade('#7a1220', -0.62), 0.8), /^rgba\(\d+, \d+, \d+, [\d.]+\)$/)
 })

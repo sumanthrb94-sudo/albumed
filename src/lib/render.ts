@@ -432,21 +432,23 @@ function drawSlot(
   const h = slot.h * box.h
   const photo = opts.photos.get(slot.photoId)
   const img = opts.cache.get(slot.photoId, opts.quality)
-  const showCaption = opts.project.album.showCaptions && Boolean(photo?.caption)
+  /* A caption under a photograph that runs off the trim has nowhere to sit, so
+     a bled page prints one line for the page instead of one per frame. And a
+     caption under every frame of a six-up is clutter; on a busy page the
+     photographs speak. */
+  const busy = opts.page.slots.length > 3
+  const showCaption = opts.project.album.showCaptions && Boolean(photo?.caption) && !slot.bled && !busy
   const twoLine = showCaption && Boolean(photo?.captionNative?.trim())
   const capH = showCaption ? Math.min(h * (twoLine ? 0.24 : 0.16), u * (twoLine ? 5.2 : 3.2)) : 0
   const ih = h - capH
-  const shape = resolveShape(slot.shape, w, ih)
+  /* An arch or a rounded corner is a deliberate flourish around a single
+     photograph on paper. Repeated down a grid of six it reads as soft, and at
+     the trim of a bled page there is no corner to round. */
+  const shape = slot.bled || opts.page.slots.length > 2 ? 'rect' : resolveShape(slot.shape, w, ih)
 
-  ctx.save()
-  // drop shadow
-  ctx.shadowColor = 'rgba(48,20,10,0.28)'
-  ctx.shadowBlur = u * 1.1
-  ctx.shadowOffsetY = u * 0.28
-  ctx.fillStyle = '#ffffff'
-  shapePath(ctx, shape, x, y, w, ih, u)
-  ctx.fill()
-  ctx.restore()
+  /* No drop shadow. A photograph on an album page is printed into the paper,
+     not stuck on top of it, and a shadow under every frame is the single
+     clearest tell of a cheap template. */
 
   ctx.save()
   shapePath(ctx, shape, x, y, w, ih, u)
@@ -474,14 +476,17 @@ function drawSlot(
   }
   ctx.restore()
 
-  // hairline frame
-  ctx.save()
-  ctx.strokeStyle = theme.palette.gold
-  ctx.globalAlpha = 0.8
-  ctx.lineWidth = Math.max(0.5, u * 0.07)
-  shapePath(ctx, shape, x, y, w, ih, u)
-  ctx.stroke()
-  ctx.restore()
+  /* A hairline belongs around a photograph sitting on paper, not around one
+     running off the trim — there is no edge there to draw. */
+  if (!slot.bled) {
+    ctx.save()
+    ctx.strokeStyle = theme.palette.gold
+    ctx.globalAlpha = 0.55
+    ctx.lineWidth = Math.max(0.4, u * 0.05)
+    shapePath(ctx, shape, x, y, w, ih, u)
+    ctx.stroke()
+    ctx.restore()
+  }
 
   if (showCaption && photo) {
     const native = photo.captionNative?.trim()
@@ -490,15 +495,18 @@ function drawSlot(
       family: theme.bodyFont,
       weight: 'italic 400',
       color: theme.palette.inkSoft,
-      size: Math.min(capH * (native ? 0.42 : 0.62), u * 1.5),
+      size: Math.min(capH * (native ? 0.38 : 0.54), u * 1.35),
       maxW: w * 0.96,
+      tracking: u * 0.05,
+      alpha: 0.9,
     })
     if (native) {
       text(ctx, native, x + w / 2, y + ih + capH * 0.95, {
         family: scriptFontFor(opts.project.language),
         color: theme.palette.accent,
-        size: Math.min(capH * 0.44, u * 1.4),
+        size: Math.min(capH * 0.4, u * 1.25),
         maxW: w * 0.96,
+        alpha: 0.85,
       })
     }
   }
@@ -552,16 +560,24 @@ function foil(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, theme: T
 /** True when type on this board needs the darker foil to be readable. */
 const paleBoard = (theme: Theme) => luminance(theme.palette.cover) > 0.55
 
-/** Lighten (t > 0) or darken (t < 0) a hex colour. */
-function shade(hex: string, t: number): string {
+/** Lighten (t > 0) or darken (t < 0) a hex colour. Returns hex, so the result
+ *  can go anywhere the input could — including into a gradient stop, which an
+ *  `rgb(...)` string silently cannot once anything is appended to it. */
+export function shade(hex: string, t: number): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
   if (!m) return hex
   const n = parseInt(m[1], 16)
   const mix = (c: number) => Math.round(t >= 0 ? c + (255 - c) * t : c * (1 + t))
-  const r = mix((n >> 16) & 255)
-  const g = mix((n >> 8) & 255)
-  const b = mix(n & 255)
-  return `rgb(${r}, ${g}, ${b})`
+  const hx = (c: number) => Math.max(0, Math.min(255, c)).toString(16).padStart(2, '0')
+  return `#${hx(mix((n >> 16) & 255))}${hx(mix((n >> 8) & 255))}${hx(mix(n & 255))}`
+}
+
+/** A colour with an alpha, built rather than concatenated. */
+export function withAlpha(hex: string, a: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
+  if (!m) return hex
+  const n = parseInt(m[1], 16)
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${Math.max(0, Math.min(1, a))})`
 }
 
 /** Type stamped into the board: a dark bite below, the foil above it. */
@@ -1057,22 +1073,32 @@ function renderClosing(ctx: Ctx, W: number, H: number, opts: RenderOpts, theme: 
 function renderChapter(ctx: Ctx, W: number, H: number, opts: RenderOpts, theme: Theme, u: number) {
   paperBackground(ctx, W, H, theme)
 
+  /* A divider belongs to the same album as its cover. Templates whose cover is
+     a photograph get a photographic divider, dark, with the type reversed out
+     of it; templates whose cover is a board get paper and a motif. A ghost of a
+     photograph at 5% reads as a stain either way, which is what this was. */
+  const photographic = theme.cover === 'fullbleed' || theme.cover === 'band' || theme.cover === 'duotone'
   const slot = opts.page.slots[0]
-  const img = slot ? opts.cache.get(slot.photoId, opts.quality) : null
+  const img = photographic && slot ? opts.cache.get(slot.photoId, opts.quality) : null
   const photo = slot ? opts.photos.get(slot.photoId) : undefined
+  const reversed = Boolean(img)
+
   if (img) {
     drawImageCover(ctx, img, 0, 0, W, H, { x: photo?.focusX ?? 0.5, y: photo?.focusY ?? 0.5 })
-    // A wash that leaves the photo readable at the edges and clears a band for the title.
+    // Taken down far enough that a title can sit on it without a box.
     const wash = ctx.createLinearGradient(0, 0, 0, H)
-    wash.addColorStop(0, `${theme.palette.paper}b3`)
-    wash.addColorStop(0.32, `${theme.palette.paper}f2`)
-    wash.addColorStop(0.68, `${theme.palette.paper}f2`)
-    wash.addColorStop(1, `${theme.palette.paper}b3`)
+    const deep = shade(theme.palette.cover, -0.62)
+    wash.addColorStop(0, withAlpha(deep, 0.8))
+    wash.addColorStop(0.45, withAlpha(deep, 0.91))
+    wash.addColorStop(1, withAlpha(deep, 0.8))
     ctx.fillStyle = wash
     ctx.fillRect(0, 0, W, H)
   }
 
-  drawBorder(ctx, W, H, theme, u, opts.project.album.seed + opts.pageIndex)
+  const ink = reversed ? '#fdf3e3' : theme.palette.ink
+  const inkSoft = reversed ? 'rgba(253,243,227,0.78)' : theme.palette.inkSoft
+  if (!reversed) drawBorder(ctx, W, H, theme, u, opts.project.album.seed + opts.pageIndex)
+  else foilFrame(ctx, W, H, u * 3, theme, u)
 
   const cx = W / 2
   const cy = H * 0.46
@@ -1114,7 +1140,7 @@ function renderChapter(ctx: Ctx, W: number, H: number, opts: RenderOpts, theme: 
   }
   text(ctx, opts.page.heading ?? '', cx, cy, {
     family: theme.titleFont,
-    color: theme.palette.ink,
+    color: ink,
     size: u * 6.4,
     maxW: W * 0.78,
     tracking: u * 0.1,
@@ -1124,7 +1150,7 @@ function renderChapter(ctx: Ctx, W: number, H: number, opts: RenderOpts, theme: 
     text(ctx, opts.page.blurb, cx, cy + u * 8.4, {
       family: theme.bodyFont,
       weight: 'italic 400',
-      color: theme.palette.inkSoft,
+      color: inkSoft,
       size: u * 2.6,
       maxW: W * 0.66,
     })
@@ -1132,23 +1158,89 @@ function renderChapter(ctx: Ctx, W: number, H: number, opts: RenderOpts, theme: 
 }
 
 function renderPhotos(ctx: Ctx, W: number, H: number, opts: RenderOpts, theme: Theme, u: number) {
+  const bled = Boolean(opts.page.bleed)
   paperBackground(ctx, W, H, theme)
-  drawBorder(ctx, W, H, theme, u, opts.project.album.seed + opts.pageIndex)
+  // A decorative frame around a bled photograph is a frame around nothing.
+  if (!bled) drawBorder(ctx, W, H, theme, u, opts.project.album.seed + opts.pageIndex)
 
-  const margin = u * 6.4
-  const bottom = opts.project.album.showPageNumbers ? margin + u * 2.4 : margin
-  const box = { x: margin, y: margin, w: W - margin * 2, h: H - margin - bottom }
-  opts.page.slots.forEach((slot) => drawSlot(ctx, slot, box, opts, theme, u))
+  /* More paper than before. Every studio note on this says the same thing —
+     let the album breathe — and a tight margin is what makes a page look
+     like a contact sheet rather than a book. */
+  const margin = u * 8
+  const bottom = opts.project.album.showPageNumbers ? margin + u * 2 : margin
+  const box = bled
+    ? { x: 0, y: 0, w: W, h: H }
+    : { x: margin, y: margin, w: W - margin * 2, h: H - margin - bottom }
+
+  opts.page.slots.forEach((slot) => drawSlot(ctx, { ...slot, bled }, box, opts, theme, u))
+
+  if (bled) bleedCaption(ctx, W, H, opts, theme, u)
 
   if (opts.project.album.showPageNumbers) {
-    text(ctx, String(opts.pageIndex + 1), W / 2, H - margin * 0.55, {
+    // In the outer corner, small and tracked, the way a printed book sets it —
+    // not floating in the middle of the foot.
+    const right = opts.pageIndex % 2 === 0
+    const px = right ? W - margin * 0.62 : margin * 0.62
+    text(ctx, String(opts.pageIndex + 1), px, H - margin * 0.5, {
       family: theme.bodyFont,
-      color: theme.palette.inkSoft,
-      size: u * 1.9,
+      color: bled ? '#ffffff' : theme.palette.inkSoft,
+      size: u * 1.7,
       maxW: W * 0.2,
-      alpha: 0.8,
+      tracking: u * 0.2,
+      alpha: bled ? 0.75 : 0.65,
     })
   }
+}
+
+/** One line for a page whose photographs run to the trim. Where the layout has
+ *  left paper at the foot it is set in ink on that paper; where the photograph
+ *  goes all the way down it is set in white over a short wash, which is what a
+ *  printed album does and what a caption box would ruin. */
+function bleedCaption(ctx: Ctx, W: number, H: number, opts: RenderOpts, theme: Theme, u: number) {
+  if (!opts.project.album.showCaptions) return
+  const lead = opts.photos.get(opts.page.slots[0]?.photoId ?? '')
+  const caption = lead?.caption?.trim()
+  if (!caption) return
+
+  const foot = Math.max(...opts.page.slots.map((s) => s.y + s.h))
+  const onPaper = foot < 0.97
+  const native = lead?.captionNative?.trim()
+
+  if (!onPaper) {
+    const g = ctx.createLinearGradient(0, H * 0.72, 0, H)
+    g.addColorStop(0, 'rgba(0,0,0,0)')
+    g.addColorStop(0.7, 'rgba(0,0,0,0.42)')
+    g.addColorStop(1, 'rgba(0,0,0,0.7)')
+    ctx.fillStyle = g
+    ctx.fillRect(0, H * 0.72, W, H * 0.28)
+    // A wash alone cannot carry white type over a bright sari, so the line
+    // gets its own soft shadow too.
+    ctx.shadowColor = 'rgba(0,0,0,0.55)'
+    ctx.shadowBlur = u * 1.2
+  }
+
+  const ink = onPaper ? theme.palette.inkSoft : '#ffffff'
+  const y = onPaper ? H * (foot + (1 - foot) * 0.46) : H * 0.925
+  text(ctx, caption, W / 2, y, {
+    family: theme.bodyFont,
+    weight: 'italic 400',
+    color: ink,
+    size: u * 1.8,
+    maxW: W * 0.7,
+    tracking: u * 0.08,
+    alpha: onPaper ? 0.92 : 0.95,
+  })
+  if (native) {
+    text(ctx, native, W / 2, y + u * 2.8, {
+      family: scriptFontFor(opts.project.language),
+      color: onPaper ? theme.palette.accent : '#f6dfae',
+      size: u * 1.6,
+      maxW: W * 0.7,
+      alpha: 0.9,
+    })
+  }
+  ctx.shadowColor = 'transparent'
+  ctx.shadowBlur = 0
 }
 
 /** Paint one album page into `ctx`, which must already be sized W×H. */

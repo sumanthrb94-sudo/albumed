@@ -16,6 +16,10 @@ export interface Template {
   prefer: Orient[]
   /** Page shapes this template flatters. */
   fit: 'wide' | 'tall' | 'any'
+  /** Run the photographs to the trim, ignoring the page margin. The thing every
+   *  album at the top of this market does and no cheap one does: one striking
+   *  image, edge to edge, nothing around it. */
+  bleed?: boolean
 }
 
 const G = 0.022 // gap between slots
@@ -42,6 +46,53 @@ const inset = (slots: Rect[], dx: number, dy: number): Rect[] =>
   }))
 
 export const TEMPLATES: Template[] = [
+  // ---- 1 photo, to the trim ----
+  { id: 'bleed-single', count: 1, slots: [{ x: 0, y: 0, w: 1, h: 1 }], prefer: ['a'], fit: 'any', bleed: true },
+  {
+    // Bled off three sides, with the foot left as paper for the caption.
+    id: 'bleed-foot',
+    count: 1,
+    slots: [{ x: 0, y: 0, w: 1, h: 0.82 }],
+    prefer: ['a'],
+    fit: 'any',
+    bleed: true,
+  },
+  {
+    // Two frames meeting at the centre, no gutter — a spread on one page.
+    id: 'bleed-pair',
+    count: 2,
+    slots: [
+      { x: 0, y: 0, w: 0.5, h: 1 },
+      { x: 0.5, y: 0, w: 0.5, h: 1 },
+    ],
+    prefer: ['p', 'p'],
+    fit: 'wide',
+    bleed: true,
+  },
+  {
+    id: 'bleed-stack',
+    count: 2,
+    slots: [
+      { x: 0, y: 0, w: 1, h: 0.5 },
+      { x: 0, y: 0.5, w: 1, h: 0.5 },
+    ],
+    prefer: ['l', 'l'],
+    fit: 'tall',
+    bleed: true,
+  },
+  {
+    // One photograph bled, one small and inset with a lot of air around it.
+    id: 'bleed-inset',
+    count: 2,
+    slots: [
+      { x: 0, y: 0, w: 1, h: 0.66 },
+      { x: 0.58, y: 0.72, w: 0.34, h: 0.21 },
+    ],
+    prefer: ['l', 'a'],
+    fit: 'any',
+    bleed: true,
+  },
+
   // ---- 1 photo ----
   { id: 'full-bleed', count: 1, slots: [{ x: 0, y: 0, w: 1, h: 1 }], prefer: ['a'], fit: 'any' },
   {
@@ -331,6 +382,7 @@ function photoPages(
       id: uid('pg_'),
       kind: 'photos',
       templateId: chosen.id,
+      bleed: chosen.bleed,
       slots: assign(chunk, chosen, pageAspect, shape),
       chapterId,
     })
@@ -419,5 +471,5 @@ export function relayoutPage(page: AlbumPage, photos: Photo[], pageAspect: numbe
   const idx = options.findIndex((t) => t.id === page.templateId)
   const next = options[(idx + 1 + Math.floor(seed) % Math.max(1, options.length - 1)) % options.length]
   const shape = page.slots[0]?.shape
-  return { ...page, templateId: next.id, slots: assign(list, next, pageAspect, shape) }
+  return { ...page, templateId: next.id, bleed: next.bleed, slots: assign(list, next, pageAspect, shape) }
 }
