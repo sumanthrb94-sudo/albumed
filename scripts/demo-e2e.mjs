@@ -173,6 +173,33 @@ try {
   if (await page.locator('button:has-text("Send code")').isEnabled()) fail('a number starting 1 was accepted')
   await shot('01-signin')
 
+  /* The gate is a cream card on a maroon field in either theme, because the
+     field is ours and not the operating system's. It was not: with the tokens
+     flipped for dark mode the card's gradient ran white to near-black under
+     cream text and the top half of it went blank on a phone. */
+  {
+    const dark = await browser.newContext({ viewport: { width: 412, height: 915 }, colorScheme: 'dark' })
+    const dp = await dark.newPage()
+    await dp.goto(BASE, { waitUntil: 'networkidle' })
+    await dp.waitForSelector('.signin-card')
+    const seen = await dp.evaluate(() => {
+      const lum = (c) => {
+        const m = /rgba?\((\d+), ?(\d+), ?(\d+)/.exec(c)
+        return m ? (0.299 * +m[1] + 0.587 * +m[2] + 0.114 * +m[3]) / 255 : null
+      }
+      const card = document.querySelector('.signin-card')
+      const h2 = card.querySelector('h2')
+      const stops = getComputedStyle(card).backgroundImage.match(/rgba?\([^)]+\)/g) ?? []
+      return { stops: stops.map(lum), ink: lum(getComputedStyle(h2).color) }
+    })
+    await dark.close()
+    const gaps = seen.stops.map((l) => Math.abs(l - seen.ink))
+    console.log(`  \u2713 dark mode: the card stays cream (ink ${seen.ink.toFixed(2)} vs ${seen.stops.map((l) => l.toFixed(2)).join(', ')})`)
+    if (Math.min(...gaps) < 0.4) {
+      fail(`the sign-in heading disappears into its own card in dark mode: ink ${seen.ink}, card ${seen.stops}`)
+    }
+  }
+
   const code = await signIn(STUDIO_PHONE, 'studio')
   console.log(`  \u2713 code issued on screen: ${code}`)
   await shot('02-signin-code')

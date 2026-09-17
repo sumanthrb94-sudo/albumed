@@ -73,7 +73,10 @@ a { color: var(--maroon); }
   gap: 12px;
   padding: 10px 16px;
   padding-top: max(10px, env(safe-area-inset-top));
-  background: linear-gradient(135deg, var(--maroon), #4a0a12);
+  /* The brand bar is a fixed surface with cream on it, not a themed one. In
+     dark mode --maroon lifts to a pink for contrast against dark cards, which
+     is right there and wrong here. */
+  background: linear-gradient(135deg, #7a1220, #4a0a12);
   color: #f7e6c4;
   box-shadow: var(--shadow);
 }
@@ -670,7 +673,25 @@ textarea { min-height: 70px; resize: vertical; }
 /* ---- the gate half ---- */
 
 .signin-card {
-  background: linear-gradient(180deg, #fffaf2, var(--card));
+  /* This card is a sheet of cream paper on a dark maroon field, in either
+     theme — the field is painted by .signin, not by the OS. So the palette is
+     pinned here rather than inherited: with the tokens flipped for dark mode
+     the gradient ran white to near-black under cream text, and the top half of
+     the card went blank. Redefining the tokens means every child — the inputs,
+     the role buttons, the +91 chip, the demo note — follows without each one
+     needing its own override. */
+  --paper: #fdf8f0;
+  --paper-2: #f6ecdd;
+  --card: #ffffff;
+  --ink: #2c1a14;
+  --ink-soft: #7b6355;
+  --line: #e7d9c5;
+  --maroon: #7a1220;
+  --maroon-soft: #a6303c;
+  --gold: #c8972f;
+  --red: #b4322c;
+
+  background: linear-gradient(180deg, #fffaf2, #fdf6ea);
   border: 1px solid rgba(200, 151, 47, 0.35);
   border-radius: 22px;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.8);
