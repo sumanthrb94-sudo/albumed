@@ -45,7 +45,7 @@ export function Paywall() {
             const p = PLANS[id]
             const current = app.plan.id === id
             return (
-              <div key={id} className={`plan${current ? ' current' : ''}${id === 'plus' ? ' featured' : ''}`}>
+              <div key={id} data-plan={id} className={`plan${current ? ' current' : ''}${id === 'plus' ? ' featured' : ''}`}>
                 {id === 'plus' && <span className="ribbon">Most families pick this</span>}
                 <h3>{p.name}</h3>
                 <div className="price">

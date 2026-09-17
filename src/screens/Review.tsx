@@ -4,6 +4,7 @@ import { PhotoThumb } from '../components/PhotoThumb'
 import { fullUrl } from '../lib/images'
 import { CuratePanel, PhotoVerdictChips } from '../components/Assistant'
 import { CEREMONY_LABELS } from '../lib/aiContract'
+import { QualityNudge } from '../components/QualityCompare'
 import type { Photo, PhotoStatus } from '../lib/types'
 
 type Filter = 'all' | PhotoStatus | 'starred' | 'photographer' | 'customer'
@@ -150,6 +151,18 @@ export function Review({ nav }: { nav: (hash: string) => void }) {
 
   return (
     <div className="wrap">
+      {/* A delivered album never passes through the uploader, so the customer
+          would otherwise never be shown what the free tier keeps. */}
+      <QualityNudge
+        onSubscribe={() =>
+          app.showPaywall({
+            reason: 'Keep these photos at full quality',
+            detail:
+              'Your photographer sent these at print quality. A free album stores a smaller copy — subscribe and this one keeps what was sent.',
+          })
+        }
+      />
+
       <CuratePanel onPlanned={() => nav(`#/p/${project.id}/album`)} />
 
       <div className="card">

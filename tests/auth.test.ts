@@ -92,7 +92,7 @@ test('the right code no longer works once the tries are used up', () => {
 
 test('a code expires', () => {
   const t0 = 1_000_000
-  const issued = issueCode('9876543210', t0)
+  const issued = issueCode('9876543210', 'customer', t0)
   assert.ok(issued.ok)
   if (!issued.ok) return
   assert.equal(currentChallenge(t0 + CODE_TTL_MS - 1)?.code, issued.challenge.code)
@@ -103,17 +103,17 @@ test('a code expires', () => {
 
 test('resending too soon is refused, and allowed after the cooldown', () => {
   const t0 = 1_000_000
-  assert.ok(issueCode('9876543210', t0).ok)
-  const tooSoon = issueCode('9876543210', t0 + 1000)
+  assert.ok(issueCode('9876543210', 'customer', t0).ok)
+  const tooSoon = issueCode('9876543210', 'customer', t0 + 1000)
   assert.equal(tooSoon.ok, false)
   if (!tooSoon.ok) assert.ok((tooSoon.retryAfterMs ?? 0) > 0)
-  assert.ok(issueCode('9876543210', t0 + RESEND_COOLDOWN_MS + 1).ok)
+  assert.ok(issueCode('9876543210', 'customer', t0 + RESEND_COOLDOWN_MS + 1).ok)
 })
 
 test('a different number is not held back by another number cooldown', () => {
   const t0 = 1_000_000
-  assert.ok(issueCode('9876543210', t0).ok)
-  assert.ok(issueCode('9812345678', t0 + 1000).ok)
+  assert.ok(issueCode('9876543210', 'customer', t0).ok)
+  assert.ok(issueCode('9812345678', 'customer', t0 + 1000).ok)
 })
 
 test('a bad number never issues a code', () => {
@@ -132,7 +132,7 @@ test('a code of the wrong length does not burn an attempt', () => {
 
 test('the session survives a reload and expires eventually', () => {
   const t0 = 1_000_000
-  const issued = issueCode('9876543210', t0)
+  const issued = issueCode('9876543210', 'customer', t0)
   assert.ok(issued.ok)
   if (!issued.ok) return
   const v = verifyCode(issued.challenge.code, t0)
@@ -142,12 +142,31 @@ test('the session survives a reload and expires eventually', () => {
   assert.equal(currentSession(v.session.expiresAt + 1), null)
 })
 
+test('the role you picked is the role you are signed in as', () => {
+  const issued = issueCode('9000011122', 'studio')
+  assert.ok(issued.ok)
+  if (!issued.ok) return
+  const v = verifyCode(issued.challenge.code)
+  assert.ok(v.ok)
+  if (!v.ok) return
+  assert.equal(v.session.role, 'studio')
+  assert.equal(currentSession()?.role, 'studio')
+})
+
+test('a session stored before roles existed reads as the family side', () => {
+  store.set(
+    'albumed.session',
+    JSON.stringify({ phone: '9876543210', signedInAt: 1, expiresAt: Date.now() + 1000 }),
+  )
+  assert.equal(currentSession()?.role, 'customer')
+})
+
 test('signing out clears the session and any pending code', () => {
   const issued = issueCode('9876543210')
   assert.ok(issued.ok)
   if (!issued.ok) return
   verifyCode(issued.challenge.code)
-  issueCode('9876543210', Date.now() + RESEND_COOLDOWN_MS + 1)
+  issueCode('9876543210', 'customer', Date.now() + RESEND_COOLDOWN_MS + 1)
   signOut()
   assert.equal(currentSession(), null)
   assert.equal(currentChallenge(), null)

@@ -80,6 +80,11 @@ export interface AlbumChapter {
 
 export interface Project {
   id: string
+  /** The mobile number this album belongs to. A studio and the family it sent
+   *  to share one device in the demo, so an album is scoped to whoever is
+   *  signed in. Absent on albums made before sign-in existed, which stay
+   *  visible to everybody on that device. */
+  ownerPhone?: string
   title: string
   /** "Priya & Arjun", "Baby Aarav", "The Sharma Family"… */
   hosts: string
@@ -134,4 +139,42 @@ export interface AlbumPage {
 export interface Album {
   pages: AlbumPage[]
   generatedAt: number
+}
+
+/* ---------- studio -> customer delivery ---------- */
+
+/** One photo inside a delivery. Blobs, not data URLs: IndexedDB stores them
+ *  natively, and base64 would add a third to a 25-photo wedding take. */
+export interface DeliveryPhoto {
+  meta: Omit<Photo, 'projectId'>
+  full: Blob
+  thumb: Blob
+}
+
+/** What a studio has sent to a customer's mobile number.
+ *
+ *  In production this is a row on a server and the photos sit in object
+ *  storage; the customer's phone number is the address. Here it is a record in
+ *  the same IndexedDB, so the whole two-sided flow can be demonstrated on one
+ *  device without a backend. The shape is the shape either way. */
+export interface Delivery {
+  id: string
+  /** Normalised ten digit numbers the studio addressed this to. */
+  toPhones: string[]
+  studioName: string
+  studioPhone: string
+  message: string
+  sentAt: number
+  /** Phone number -> the project it became once that customer opened it. */
+  openedBy: Record<string, string>
+  event: {
+    title: string
+    hosts: string
+    eventDate: string
+    venue: string
+    occasionNote: string
+    language: Language
+    themeId: string
+  }
+  photos: DeliveryPhoto[]
 }

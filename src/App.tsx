@@ -83,17 +83,29 @@ function Account({ session, onSignOut }: { session: Session; onSignOut: () => vo
         aria-haspopup="menu"
         aria-label={`Account ${displayPhone(session.phone)}`}
       >
-        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden focusable="false">
-          <circle cx="8" cy="5" r="3" fill="currentColor" />
-          <path d="M2 15a6 6 0 0 1 12 0Z" fill="currentColor" />
-        </svg>
+        {session.role === 'studio' ? (
+          <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden focusable="false">
+            <path d="M1 5h3l1.2-1.6h5.6L12 5h3v9H1Z" fill="none" stroke="currentColor" strokeWidth="1.4" />
+            <circle cx="8" cy="9.4" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden focusable="false">
+            <circle cx="8" cy="5" r="3" fill="currentColor" />
+            <path d="M2 15a6 6 0 0 1 12 0Z" fill="currentColor" />
+          </svg>
+        )}
         {/* The full number on a laptop, the memorable tail on a phone. */}
         <b className="full">{displayPhone(session.phone)}</b>
         <b className="short" aria-hidden>{session.phone.slice(-5)}</b>
       </button>
       {open && (
         <div className="account-menu" role="menu">
-          <p className="hint">Signed in on this device. Your albums live here, not on a server.</p>
+          <p className="hint">
+            Signed in as <b>{session.role === 'studio' ? 'a studio' : 'the family'}</b> on {displayPhone(session.phone)}.
+            {session.role === 'studio'
+              ? ' Events you send go to the numbers you address them to.'
+              : ' Your albums live on this device, not on a server.'}
+          </p>
           <button
             className="btn sm"
             role="menuitem"
@@ -141,6 +153,11 @@ function Shell({ session, onSignOut }: { session: Session; onSignOut: () => void
           </div>
         </button>
         <span className="spacer" />
+        {session.role === 'studio' && (
+          <span className="chip studio" title="You are signed in on the studio side">
+            Studio side
+          </span>
+        )}
         {project && <span className={`chip status ${project.status}`}>{project.status === 'collecting' ? 'Collecting' : project.status === 'review' ? 'In review' : 'Finalized'}</span>}
         <button
           className={`plan-chip${app.plan.limits.printGrade ? ' paid' : ''}`}
@@ -243,7 +260,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       {session ? (
-        <AppProvider>
+        <AppProvider session={session}>
           <Shell
             session={session}
             onSignOut={() => {

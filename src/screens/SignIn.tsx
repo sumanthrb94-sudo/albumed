@@ -9,12 +9,14 @@ import {
   RESEND_COOLDOWN_MS,
   verifyCode,
   type Challenge,
+  type Role,
 } from '../lib/auth'
 
 /** Phone sign-in. The code is generated here and shown on screen, because
  *  there is no SMS provider behind this — the banner says exactly that. */
 export function SignIn({ onSignedIn }: { onSignedIn: (phone: string) => void }) {
   const [phone, setPhone] = useState('')
+  const [role, setRole] = useState<Role>('customer')
   const [challenge, setChallenge] = useState<Challenge | null>(() => currentChallenge())
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -41,7 +43,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: (phone: string) => void }) 
 
   const send = (e?: React.FormEvent) => {
     e?.preventDefault()
-    const result = issueCode(phone)
+    const result = issueCode(phone, role)
     if (!result.ok) {
       setError(result.error)
       return
@@ -73,12 +75,34 @@ export function SignIn({ onSignedIn }: { onSignedIn: (phone: string) => void }) 
         <h1>Albumed</h1>
         <p className="hint">
           {step === 'phone'
-            ? 'Sign in with your mobile number to start an album.'
+            ? role === 'studio'
+              ? 'Sign in to send an event to the people you shot it for.'
+              : 'Sign in with the number your photographer has. Your photos will be waiting.'
             : `We sent a ${OTP_LENGTH} digit code to ${formatPhone(challenge!.phone)}.`}
         </p>
 
         {step === 'phone' ? (
           <form onSubmit={send}>
+            <div className="role-pick" role="radiogroup" aria-label="Who are you signing in as">
+              {(
+                [
+                  { id: 'customer', label: 'I am the family', hint: 'My photos were sent to me' },
+                  { id: 'studio', label: 'I am the studio', hint: 'I shot the event' },
+                ] as Array<{ id: Role; label: string; hint: string }>
+              ).map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={role === o.id}
+                  className={role === o.id ? 'on' : ''}
+                  onClick={() => setRole(o.id)}
+                >
+                  <b>{o.label}</b>
+                  <span>{o.hint}</span>
+                </button>
+              ))}
+            </div>
             <label className="field">
               <span>Mobile number</span>
               <div className="phone-row">

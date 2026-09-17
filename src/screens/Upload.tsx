@@ -3,9 +3,11 @@ import { useApp } from '../store'
 import { PhotoThumb } from '../components/PhotoThumb'
 import type { PhotoSource } from '../lib/types'
 import { QualityNudge } from '../components/QualityCompare'
+import { SendToCustomer } from '../components/SendToCustomer'
 
 export function Upload({ nav }: { nav: (hash: string) => void }) {
   const app = useApp()
+  const studio = app.session.role === 'studio'
   const [source, setSource] = useState<PhotoSource>('photographer')
   const [over, setOver] = useState(false)
   const pickRef = useRef<HTMLInputElement | null>(null)
@@ -117,6 +119,8 @@ export function Upload({ nav }: { nav: (hash: string) => void }) {
           </div>
         </div>
       </div>
+
+      {studio && <SendToCustomer />}
 
       <QualityNudge
         onSubscribe={() =>

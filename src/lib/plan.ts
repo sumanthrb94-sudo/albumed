@@ -115,9 +115,14 @@ const KEY = 'albumed.plan'
 
 /** The plan lives on the device. A real deployment would read it from the
  *  account after a payment provider confirms — see `activatePlan`. */
-export function readPlan(): PlanId {
+/* A plan belongs to an account, not to a browser: a studio and the family it
+   sent to share one device in this demo, and the studio paying must not quietly
+   put the family on a paid plan too. */
+const planKey = (phone?: string) => (phone ? `${KEY}.${phone}` : KEY)
+
+export function readPlan(phone?: string): PlanId {
   try {
-    const v = localStorage.getItem(KEY)
+    const v = localStorage.getItem(planKey(phone))
     if (v === 'plus' || v === 'studio' || v === 'free') return v
   } catch {
     /* private window, blocked storage */
@@ -125,9 +130,9 @@ export function readPlan(): PlanId {
   return 'free'
 }
 
-export function writePlan(id: PlanId): void {
+export function writePlan(id: PlanId, phone?: string): void {
   try {
-    localStorage.setItem(KEY, id)
+    localStorage.setItem(planKey(phone), id)
   } catch {
     /* nothing we can do; the session keeps it in memory */
   }

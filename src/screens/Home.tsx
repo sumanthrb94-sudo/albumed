@@ -2,9 +2,11 @@ import { useRef, useState } from 'react'
 import { useApp } from '../store'
 import { importBundle } from '../lib/bundle'
 import { DEFAULT_THEME_ID, REGIONS, THEMES } from '../lib/themes'
+import { Inbox } from '../components/Inbox'
 
 export function Home({ nav }: { nav: (hash: string) => void }) {
   const app = useApp()
+  const studio = app.session.role === 'studio'
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState({ title: '', hosts: '', eventDate: '', venue: '', themeId: DEFAULT_THEME_ID })
@@ -50,14 +52,26 @@ export function Home({ nav }: { nav: (hash: string) => void }) {
     <div className="wrap">
       <div className="hero">
         <div className="deva">॥ शुभ आरंभ ॥</div>
-        <h2>Turn phone photos into a real album</h2>
-        <p>
-          Upload the raw shots from your phone or the ones your photographer sent, review them together, finalize the
-          keepers — and Albumed lays out a print-ready wedding or celebration album for you.
-        </p>
+        {studio ? (
+          <>
+            <h2>Send the take to the family</h2>
+            <p>
+              Make the event, add the photographs, and send it to their mobile number. They pick the keepers on their
+              own phone, and the album is laid out from what they chose.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2>Turn phone photos into a real album</h2>
+            <p>
+              The photos your photographer sent are waiting under your number. Keep the ones you want, drop the rest —
+              and Albumed lays out a print-ready wedding or celebration album from your selection.
+            </p>
+          </>
+        )}
         <div className="row">
           <button className="btn gold" onClick={() => setOpen((v) => !v)}>
-            + New album
+            {studio ? '+ New event' : '+ New album'}
           </button>
           <button className="btn ghost" style={{ color: '#f7e6c4', borderColor: 'rgba(255,255,255,.4)' }} onClick={demo} disabled={busy}>
             ▶ Run the demo album
@@ -80,9 +94,11 @@ export function Home({ nav }: { nav: (hash: string) => void }) {
         </div>
       </div>
 
+      {!studio && <Inbox nav={nav} />}
+
       {open && (
         <div className="card" style={{ marginTop: 16 }}>
-          <h2>New album</h2>
+          <h2>{studio ? 'New event' : 'New album'}</h2>
           <p className="hint">You can change all of this later.</p>
           <div className="grid2" style={{ marginTop: 12 }}>
             <label className="field">
@@ -141,21 +157,29 @@ export function Home({ nav }: { nav: (hash: string) => void }) {
             </select>
           </label>
           <button className="btn primary block" onClick={create}>
-            Create album
+            {studio ? 'Create event' : 'Create album'}
           </button>
         </div>
       )}
 
-      <h2 style={{ margin: '26px 0 12px' }}>Your albums</h2>
+      <h2 style={{ margin: '26px 0 12px' }}>{studio ? 'Your events' : 'Your albums'}</h2>
       {app.projects.length === 0 ? (
         <div className="card empty">
           <div className="om">॥ ॐ ॥</div>
-          <p>No albums yet. Start one above, or run the demo to see the whole flow end to end.</p>
+          <p>
+            {studio
+              ? 'No events yet. Make one above, add the take, and send it to the family.'
+              : 'No albums yet. Start one above, or run the demo to see the whole flow end to end.'}
+          </p>
         </div>
       ) : (
         <div className="project-list">
           {app.projects.map((p) => (
-            <button key={p.id} className="card project-card" onClick={() => nav(`#/p/${p.id}/upload`)}>
+            <button
+              key={p.id}
+              className="card project-card"
+              onClick={() => nav(`#/p/${p.id}/${p.status === 'collecting' ? 'upload' : 'review'}`)}
+            >
               <h3>{p.title}</h3>
               <div className="meta">{p.hosts || '—'}</div>
               <div className="meta">

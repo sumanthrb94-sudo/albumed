@@ -56,10 +56,24 @@ const shot = async (label, opts = {}) => {
 try {
   console.log('\nEntry → exit walkthrough (demo mode, no API key)\n')
 
+  const signInAs = async (phone, role) => {
+    await page.waitForSelector('.signin-card')
+    await page.click(role === 'studio' ? '.role-pick button:has-text("I am the studio")' : '.role-pick button:has-text("I am the family")')
+    await page.fill('input[aria-label="Mobile number"]', phone)
+    await page.click('button:has-text("Send code")')
+    await page.waitForSelector('[data-testid="demo-otp"]')
+    await page.fill('input[aria-label="One time code"]', (await page.locator('[data-testid="demo-otp"]').innerText()).trim())
+    await page.click('button:has-text("Sign in")')
+    await page.waitForSelector('.topbar', { timeout: 20000 })
+  }
+
+  /* ---- the studio's half ---- */
+
   await page.goto(BASE, { waitUntil: 'networkidle' })
-  await page.waitForSelector('text=Sign in with your mobile number')
-  await page.fill('input[aria-label="Mobile number"]', '98765 43210')
-  await shot('Entry — sign in with a mobile number')
+  await page.waitForSelector('.signin-card')
+  await page.click('.role-pick button:has-text("I am the studio")')
+  await page.fill('input[aria-label="Mobile number"]', '90000 11122')
+  await shot('Entry — sign in as the studio or as the family')
 
   await page.click('button:has-text("Send code")')
   await page.waitForSelector('[data-testid="demo-otp"]')
@@ -67,27 +81,49 @@ try {
 
   await page.fill('input[aria-label="One time code"]', (await page.locator('[data-testid="demo-otp"]').innerText()).trim())
   await page.click('button:has-text("Sign in")')
-  await page.waitForSelector('text=Turn phone photos into a real album')
-  await shot('The home screen, free plan')
+  await page.waitForSelector('text=Send the take to the family')
+  await shot('The studio side — send the take to the family')
 
-  await page.click('text=+ New album')
+  // A studio cannot send what it did not keep, so it is on a studio plan.
+  await page.click('.plan-chip')
+  await page.waitForSelector('.paywall')
+  await page.click('.plan[data-plan="studio"] button:has-text("Subscribe")')
+  await page.waitForSelector('.paywall', { state: 'detached', timeout: 20000 })
+
+  await page.click('text=+ New event')
   await page.fill('input[placeholder="Maa Pelli"]', 'Maa Pelli')
   await page.fill('input[placeholder="Sireesha & Karthik"]', 'Sireesha  ·  Karthik')
   await page.fill('input[placeholder="14 February 2026"]', '14 February 2026')
   await page.fill('input[placeholder="Kalyana Mandapam, Rajahmundry"]', 'Kalyana Mandapam, Rajahmundry')
-  await shot('New album — title, hosts, date, venue and style', { full: true })
+  await shot('New event — title, hosts, date, venue and style', { full: true })
 
   await page.selectOption('select', 'godavari')
-  await page.click('text=Create album')
+  await page.click('text=Create event')
   await page.waitForSelector('text=Add photos')
-  await shot('Add photos — free albums store a compressed copy')
-
   await page.click('text=Add sample photos')
-  await page.waitForSelector('text=Just added', { timeout: 60000 })
-  await page.waitForSelector('.compare', { timeout: 30000 })
-  await shot('What compression costs you — drag to compare', { scrollTo: '.compare' })
+  await page.waitForSelector('text=Just added', { timeout: 90000 })
+  await shot('The take is in — 25 photographs from the wedding', { settle: 1200 })
 
-  await page.click('text=Next: review & finalize →')
+  await page.fill('input[aria-label="Customer mobile number 1"]', '98765 43210')
+  await shot('Addressed to the family’s mobile number', { scrollTo: '.send-card', settle: 800 })
+  await page.click('.send-card button:has-text("Send")')
+  await page.waitForSelector('.sent-item', { timeout: 60000 })
+  await shot('Sent — waiting for them to open it', { scrollTo: '.sent-list', settle: 800 })
+
+  /* ---- the family's half ---- */
+
+  await page.locator('.account-chip').click()
+  await page.click('.account-menu button:has-text("Sign out")')
+  await signInAs('98765 43210', 'customer')
+  await page.waitForSelector('[data-testid="inbox"]', { timeout: 90000 })
+  await shot('The family signs in and the photos are already there', { settle: 1200 })
+
+  await page.click('button:has-text("Open and pick your photos")')
+  await page.waitForSelector('text=Review & finalize', { timeout: 120000 })
+  await page.waitForSelector('.compare', { timeout: 60000 })
+  await shot('The studio sent print quality — a free album keeps a smaller copy', { scrollTo: '.compare', settle: 1200 })
+
+  await page.evaluate(() => window.scrollTo(0, 0))
   await page.waitForSelector('text=Album assistant')
   await shot('Review — the assistant, before it has looked')
 
@@ -172,7 +208,7 @@ try {
   await page.locator('.account-chip').click()
   await shot('The account — signed in on this device', { settle: 400 })
   await page.click('.account-menu button:has-text("Sign out")')
-  await page.waitForSelector('text=Sign in with your mobile number')
+  await page.waitForSelector('.signin-card')
   await shot('Exit — signed out, back at the gate', { settle: 600 })
 
   await writeFile(join(OUT, 'index.json'), JSON.stringify(index, null, 2))

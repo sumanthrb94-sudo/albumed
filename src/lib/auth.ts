@@ -31,18 +31,24 @@ export function formatPhone(input: string): string {
   return n.length === 10 ? `+91 ${n.slice(0, 5)} ${n.slice(5)}` : input
 }
 
+/** Which side of the app you are on. A studio sends a take to a customer's
+ *  number; the customer signs in with that number and finds it waiting. */
+export type Role = 'customer' | 'studio'
+
+export interface Session {
+  phone: string
+  role: Role
+  signedInAt: number
+  expiresAt: number
+}
+
 export interface Challenge {
   phone: string
+  role: Role
   code: string
   issuedAt: number
   expiresAt: number
   attempts: number
-}
-
-export interface Session {
-  phone: string
-  signedInAt: number
-  expiresAt: number
 }
 
 /* ---------------- storage ---------------- */
@@ -87,7 +93,7 @@ export type IssueResult =
   | { ok: true; challenge: Challenge }
   | { ok: false; error: string; retryAfterMs?: number }
 
-export function issueCode(phoneInput: string, now = Date.now()): IssueResult {
+export function issueCode(phoneInput: string, role: Role = 'customer', now = Date.now()): IssueResult {
   const phone = normalisePhone(phoneInput)
   if (!isValidPhone(phone)) {
     return { ok: false, error: 'That does not look like an Indian mobile number.' }
@@ -101,6 +107,7 @@ export function issueCode(phoneInput: string, now = Date.now()): IssueResult {
   }
   const challenge: Challenge = {
     phone,
+    role,
     code: randomCode(),
     issuedAt: now,
     expiresAt: now + CODE_TTL_MS,
@@ -149,7 +156,12 @@ export function verifyCode(input: string, now = Date.now()): VerifyResult {
   }
 
   clear(CHALLENGE_KEY)
-  const session: Session = { phone: challenge.phone, signedInAt: now, expiresAt: now + SESSION_TTL_MS }
+  const session: Session = {
+    phone: challenge.phone,
+    role: challenge.role ?? 'customer',
+    signedInAt: now,
+    expiresAt: now + SESSION_TTL_MS,
+  }
   write(SESSION_KEY, session)
   return { ok: true, session }
 }
@@ -161,7 +173,8 @@ export function currentSession(now = Date.now()): Session | null {
     clear(SESSION_KEY)
     return null
   }
-  return s
+  // A session stored before roles existed is a customer.
+  return s.role ? s : { ...s, role: 'customer' }
 }
 
 export function signOut(): void {

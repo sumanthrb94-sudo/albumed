@@ -25,7 +25,8 @@ const REAL_AI =
    the same thing a presentation with no API key would use. */
 const DEMO_AI = !REAL_AI && process.env.ALBUMED_DEMO_AI === '1'
 const BASE = `http://localhost:${PORT}`
-const PHONE = '98765 43210'
+const PHONE = '98765 43210'      // the family
+const STUDIO_PHONE = '90000 11122'  // the photographer
 
 if (!existsSync(join(ROOT, 'dist', 'index.html')) || !existsSync(join(ROOT, 'dist-server', 'index.mjs'))) {
   console.error('Run `npm run build` first.')
@@ -131,8 +132,9 @@ const chat = async (text) => {
 
 /* Signs in the way a person would: type the number, read the code off the
    screen (there is no SMS behind this demo), type it in. */
-const signIn = async (phone) => {
+const signIn = async (phone, role = 'customer') => {
   await page.waitForSelector('.signin-card', { timeout: 20000 })
+  await page.click(role === 'studio' ? '.role-pick button:has-text("I am the studio")' : '.role-pick button:has-text("I am the family")')
   await page.fill('input[aria-label="Mobile number"]', phone)
   await page.click('button:has-text("Send code")')
   await page.waitForSelector('[data-testid="demo-otp"]')
@@ -144,13 +146,25 @@ const enterCode = async (code) => {
   await page.fill('input[aria-label="One time code"]', code)
   await page.click('button:has-text("Sign in")')
 }
+/** Number, code off the screen, code in — the whole gate in one call. */
+const signInFully = async (phone, role = 'customer') => {
+  const code = await signIn(phone, role)
+  await enterCode(code)
+  await page.waitForSelector('.topbar', { timeout: 20000 })
+  return code
+}
+const signOut = async () => {
+  await page.locator('.account-chip').click()
+  await page.click('.account-menu button:has-text("Sign out")')
+  await page.waitForSelector('.signin-card', { timeout: 15000 })
+}
 
 const summary = {}
 
 try {
-  step(1, 'Sign in with a mobile number and a one-time code')
+  step(1, 'The studio signs in')
   await page.goto(BASE, { waitUntil: 'networkidle' })
-  await page.waitForSelector('text=Sign in with your mobile number')
+  await page.waitForSelector('.signin-card')
   // A half-typed number cannot be submitted.
   await page.fill('input[aria-label="Mobile number"]', '98765')
   if (await page.locator('button:has-text("Send code")').isEnabled()) fail('a 5 digit number was accepted')
@@ -159,7 +173,7 @@ try {
   if (await page.locator('button:has-text("Send code")').isEnabled()) fail('a number starting 1 was accepted')
   await shot('01-signin')
 
-  const code = await signIn(PHONE)
+  const code = await signIn(STUDIO_PHONE, 'studio')
   console.log(`  \u2713 code issued on screen: ${code}`)
   await shot('02-signin-code')
 
@@ -171,14 +185,10 @@ try {
 
   await enterCode(code)
   await page.waitForSelector('.topbar', { timeout: 15000 })
-  const who = await page.locator('[data-testid="account-phone"]').getAttribute('data-phone')
-  console.log(`  \u2713 signed in as ${who}`)
-  if (!who.includes('98765')) fail(`the account chip shows ${who}`)
-  summary.signedInAs = who
-
-  step(2, 'Open the app')
-  await page.waitForSelector('text=Turn phone photos into a real album')
-  await shot('03-home')
+  if (!(await page.locator('.chip.studio').count())) fail('the studio side is not labelled')
+  await page.waitForSelector('text=Send the take to the family')
+  console.log('  \u2713 signed in on the studio side')
+  await shot('03-studio-home')
 
   // A deep URL is served index.html by the rewrite; the assets must still load,
   // which they only do if the build uses absolute paths.
@@ -187,40 +197,90 @@ try {
   await page.waitForSelector('.topbar', { timeout: 15000 })
   const styled = await page.evaluate(() => getComputedStyle(document.querySelector('.topbar')).backgroundImage !== 'none')
   if (!styled) fail('assets did not resolve on a deep link — is the build base relative?')
-  console.log('  ✓ deep links load the app with its assets')
+  console.log('  \u2713 deep links load the app with its assets')
   await page.goto(BASE, { waitUntil: 'networkidle' })
 
-  step(3, 'Create a Telugu wedding album (free plan)')
-  await page.click('text=+ New album')
+  step(2, 'The studio takes a studio plan \u2014 you cannot send what you did not keep')
+  await page.click('.plan-chip')
+  await page.waitForSelector('.paywall')
+  await page.click('.plan[data-plan="studio"] button:has-text("Subscribe")')
+  await page.waitForSelector('.paywall', { state: 'detached', timeout: 20000 })
+  const studioPlan = (await page.locator('.plan-chip').innerText()).trim()
+  console.log(`  \u2713 studio is on ${studioPlan}`)
+  if (!/Studio/.test(studioPlan)) fail(`the studio is on ${studioPlan}`)
+
+  step(3, 'The studio makes the event and adds the take')
+  await page.click('text=+ New event')
   await page.fill('input[placeholder="Maa Pelli"]', 'Maa Pelli')
-  await page.fill('input[placeholder="Sireesha & Karthik"]', 'Sireesha  ·  Karthik')
+  await page.fill('input[placeholder="Sireesha & Karthik"]', 'Sireesha  \u00b7  Karthik')
   await page.fill('input[placeholder="14 February 2026"]', '14 February 2026')
   await page.fill('input[placeholder="Kalyana Mandapam, Rajahmundry"]', 'Kalyana Mandapam, Rajahmundry')
   await page.selectOption('select', 'godavari')
-  await page.click('text=Create album')
+  await page.click('text=Create event')
   await page.waitForSelector('text=Add photos')
-  const planChip = await page.locator('.plan-chip').innerText()
-  console.log(`  ✓ starting on the ${planChip} plan`)
-  if (planChip !== 'Free') fail('a new visitor should start on Free')
-
-  step(4, 'Add the raw take — free albums store a compressed copy')
-  await page.waitForSelector('text=Free albums store a compressed copy')
   await page.click('text=Add sample photos')
-  await page.waitForSelector('text=Just added', { timeout: 60000 })
-  await page.waitForSelector('.compare', { timeout: 30000 })
+  await page.waitForSelector('text=Just added', { timeout: 90000 })
+  // The "Just added" strip only shows the last dozen; the stat is the real count.
+  const studioCount = Number((await page.locator('.stat b').first().innerText()).trim().split('/')[0].trim())
+  console.log(`  \u2713 ${studioCount} photographs in the event`)
+  if (studioCount < 20) fail(`the studio only has ${studioCount} photos`)
+
+  step(4, 'The studio sends it to the family\u2019s number')
+  await page.locator('.send-card').scrollIntoViewIfNeeded()
+  const quality = await page.locator('.send-quality').innerText()
+  console.log(`  \u2713 ${quality.split('\n')[0]}`)
+  if (!/print quality/i.test(quality)) fail(`the studio is not sending print quality: ${quality}`)
+  await page.fill('input[aria-label="Customer mobile number 1"]', PHONE)
+  await shot('04-studio-send')
+  await page.click('.send-card button:has-text("Send")')
+  await page.waitForSelector('.sent-item', { timeout: 60000 })
+  const sentTo = await page.locator('.sent-item .who').innerText()
+  const sentState = await page.locator('.sent-item .waiting, .sent-item .opened').innerText()
+  console.log(`  \u2713 sent to ${sentTo} \u2014 ${sentState}`)
+  if (!/waiting/i.test(sentState)) fail(`expected the delivery to be waiting, got "${sentState}"`)
+  await shot('05-studio-sent')
+
+  step(5, 'The family signs in, and the photos are already there')
+  await signOut()
+  await signInFully(PHONE, 'customer')
+  await page.waitForSelector('[data-testid="inbox"]', { timeout: 90000 })
+  const fromWho = await page.locator('.delivery-head .meta').first().innerText()
+  const waitingCount = Number((await page.locator('.delivery-head .count b').innerText()).trim())
+  console.log(`  \u2713 inbox: ${waitingCount} photos \u2014 ${fromWho.replace(/\s+/g, ' ')}`)
+  if (waitingCount !== studioCount) fail(`the studio sent ${studioCount} photos, the inbox shows ${waitingCount}`)
+  // The studio's own event must not be visible on the family's side.
+  if (await page.locator('.project-card').count()) fail("the studio's event leaked into the family's albums")
+  await shot('06-inbox')
+
+  await page.click('button:has-text("Open and pick your photos")')
+  await page.waitForSelector('text=Review & finalize', { timeout: 120000 })
+  const received = await page.locator('.tile').count()
+  console.log(`  \u2713 opened straight into the selection with ${received} photos`)
+  if (received !== studioCount) fail(`${received} photos arrived, ${studioCount} were sent`)
+  summary.sent = studioCount
+  summary.received = received
+
+  step(6, 'The studio sent print quality \u2014 a free album keeps a smaller copy')
+  await page.waitForSelector('.compare', { timeout: 60000 })
   const storedLabel = await page.locator('.compare-label.right').innerText()
   const originalLabel = await page.locator('.compare-label.left').innerText()
-  console.log(`  ✓ quality comparison rendered — ${originalLabel} vs ${storedLabel}`)
-  if (!/1280|\d+ × \d+/.test(storedLabel)) fail('the stored size was not shown')
+  console.log(`  \u2713 quality comparison rendered \u2014 ${originalLabel} vs ${storedLabel}`)
+  const px = (label) => {
+    const m = /(\d+)\s*\u00d7\s*(\d+)/.exec(label)
+    return m ? Number(m[1]) * Number(m[2]) : 0
+  }
+  if (!px(storedLabel) || !px(originalLabel)) fail('the comparison did not print both sizes')
+  if (px(storedLabel) >= px(originalLabel)) {
+    fail(`the free copy is not smaller than what the studio sent: ${originalLabel} vs ${storedLabel}`)
+  }
   await page.locator('.compare').scrollIntoViewIfNeeded()
   await page.waitForTimeout(400)
-  await shot('04-compression-compare')
-
-  await page.click('text=Next: review & finalize →')
+  await shot('07-compression-compare')
+  await page.evaluate(() => window.scrollTo(0, 0))
   await page.waitForSelector('text=Album assistant')
-  await shot('05-review-before-ai')
+  await shot('08-review-before-ai')
 
-  step(5, 'Assistant reviews every photo (vision pass)')
+  step(7, 'Assistant reviews every photo (vision pass)')
   await page.fill(
     'input[placeholder="Tamil brahmin muhurtham, then a reception in Chennai"]',
     'A Godavari-side Telugu wedding — pellikuthuru, muhurtham and an evening reception',
@@ -235,13 +295,13 @@ try {
   if (tagged < 6) fail(`expected the assistant to tag most photos, got ${tagged}`)
   summary.tagged = tagged
   summary.approvedByAi = approved
-  await shot('06-review-after-ai')
+  await shot('09-review-after-ai')
 
   await page.click('button:has-text("Show what it said")')
   await page.waitForTimeout(500)
-  await shot('07-ai-reasons')
+  await shot('10-ai-reasons')
 
-  step(6, 'Assistant plans the running order and generates the album')
+  step(8, 'Assistant plans the running order and generates the album')
   await page.click('button:has-text("Plan the album")')
   await page.waitForSelector('text=Download album PDF', { timeout: 180000 })
   await page.waitForTimeout(3000)
@@ -256,25 +316,25 @@ try {
   if (chapterPages < 1) fail('the assistant did not produce any chapters')
   summary.pagesAfterPlan = pagesAfterPlan
   summary.chapters = chapterPages
-  await shot('08-album-with-chat')
+  await shot('11-album-with-chat')
 
-  step(7, 'Edit the album by asking for changes')
+  step(9, 'Edit the album by asking for changes')
   const themeBefore = await page.locator('.card .hint').first().innerText()
   await chat('Make it look like a Kerala wedding album')
   const themeAfter = await page.locator('.card .hint').first().innerText()
   console.log(`  ✓ template: ${themeBefore.split('·')[0].trim()} → ${themeAfter.split('·')[0].trim()}`)
   if (themeBefore === themeAfter) fail('asking for a Kerala album did not change the template')
-  await shot('09-chat-theme-changed')
-  await shotPage(0, '10-page-cover-kasavu')
+  await shot('12-chat-theme-changed')
+  await shotPage(0, '13-page-cover-kasavu')
 
   await chat('Give the thaali moment a full page of its own')
   await chat('Fewer photos per page, more white space')
   const pagesAfterEdits = await page.locator('.page-item').count()
   console.log(`  ✓ album re-laid out: ${pagesAfterEdits} pages`)
   summary.pagesAfterEdits = pagesAfterEdits
-  await shot('11-chat-history')
+  await shot('14-chat-history')
 
-  step(8, 'Undo the last change')
+  step(10, 'Undo the last change')
   await page.click('.ai-card button:has-text("Undo")')
   await page.waitForTimeout(2500)
   const pagesAfterUndo = await page.locator('.page-item').count()
@@ -282,7 +342,7 @@ try {
   if (pagesAfterUndo === 0) fail('undo emptied the album')
   summary.pagesAfterUndo = pagesAfterUndo
 
-  step(9, 'Free export is a watermarked draft, capped in resolution')
+  step(11, 'Free export is a watermarked draft, capped in resolution')
   const [freeDownload] = await Promise.all([
     page.waitForEvent('download', { timeout: 240000 }),
     page.click('button:has-text("Download album PDF")'),
@@ -300,9 +360,9 @@ try {
   await page.selectOption('.card select:has(option:has-text("dpi"))', '300').catch(() => {})
   await page.waitForSelector('.paywall', { timeout: 15000 })
   console.log('  ✓ asking for 300 dpi opens the paywall')
-  await shot('12-paywall')
+  await shot('15-paywall')
 
-  step(10, 'Subscribe, and the same album unlocks')
+  step(12, 'Subscribe, and the same album unlocks')
   await page.click('.plan.featured button:has-text("Subscribe")')
   await page.waitForSelector('.paywall', { state: 'detached', timeout: 20000 })
   const paidChip = await page.locator('.plan-chip').innerText()
@@ -312,9 +372,9 @@ try {
   const hasReimport = await page.locator('text=Re-import my originals').count()
   if (!hasReimport) fail('a paid album with compressed photos should offer a re-import')
   console.log('  ✓ the album offers to swap in the original files')
-  await shot('13-after-subscribe')
+  await shot('16-after-subscribe')
 
-  step('10b', 'Re-import the originals, the way someone would after subscribing')
+  step('12b', 'Re-import the originals, the way someone would after subscribing')
   // The originals only exist in the phone's gallery, so the demo makes stand-ins
   // at full size with the same file names, and hands them to the real input.
   // These must match the names the app gives its samples, or the matcher will
@@ -353,24 +413,24 @@ try {
   if (!/3 photos upgraded/.test(upgradeToast)) fail('the originals did not replace the compressed copies')
   await page.waitForTimeout(1500)
 
-  step('10c', 'Now the press resolution is available')
+  step('12c', 'Now the press resolution is available')
   await page.selectOption('.card select:has(option:has-text("dpi"))', '300')
   const chosenDpi = await page.locator('.card select:has(option:has-text("dpi"))').inputValue()
   if (chosenDpi !== '300') fail('300 dpi should be selectable after subscribing')
   console.log('  ✓ export set to 300 dpi')
 
-  step(11, 'Capture the printed pages')
+  step(13, 'Capture the printed pages')
   await page.setViewportSize({ width: 1100, height: 1000 })
   await page.waitForTimeout(2000)
   await page.addStyleTag({ content: '.topbar,.steps{visibility:hidden !important}' })
   const total = await page.locator('.page-item').count()
-  await shotPage(0, '14-page-cover')
-  await shotPage(1, '15-page-chapter')
-  await shotPage(2, '16-page-inside')
-  await shotPage(total - 1, '17-page-closing')
+  await shotPage(0, '17-page-cover')
+  await shotPage(1, '18-page-chapter')
+  await shotPage(2, '19-page-inside')
+  await shotPage(total - 1, '20-page-closing')
   await page.addStyleTag({ content: '.topbar,.steps{visibility:visible !important}' })
 
-  step(12, 'Export the print-ready PDF at 300 dpi')
+  step(14, 'Export the print-ready PDF at 300 dpi')
   await page.evaluate(() => window.scrollTo(0, 0))
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 240000 }),
@@ -392,7 +452,7 @@ try {
   summary.pdfBytes = pdf.length
   summary.plan = paidChip
 
-  step(13, 'Reload to prove everything survives a restart')
+  step(15, 'Reload to prove everything survives a restart')
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForTimeout(3000)
   const persisted = await page.locator('.page-item').count()
@@ -401,22 +461,22 @@ try {
   summary.persistedPages = persisted
   if ((await page.locator('[data-testid="account-phone"]').count()) !== 1) fail('the reload signed the user out')
   console.log('  ✓ still signed in after the reload')
-  await shot('18-after-reload')
+  await shot('21-after-reload')
 
-  step(14, 'Sign out, and sign back in — the albums are on the device, not the session')
+  step(16, 'Sign out, and sign back in — the albums are on the device, not the session')
   await page.locator('.account-chip').click()
   await page.click('.account-menu button:has-text("Sign out")')
-  await page.waitForSelector('text=Sign in with your mobile number', { timeout: 15000 })
+  await page.waitForSelector('.signin-card', { timeout: 15000 })
   if ((await page.locator('.topbar').count()) !== 0) fail('signing out left the app on screen')
   console.log('  ✓ signed out — the app is behind the gate again')
-  await shot('19-signed-out')
+  await shot('22-signed-out')
 
   const code2 = await signIn(PHONE)
   await enterCode(code2)
   await page.waitForSelector('.topbar', { timeout: 15000 })
   await page.waitForSelector('text=Maa Pelli', { timeout: 20000 })
   console.log('  ✓ signed back in, and the album is still there')
-  await shot('20-signed-back-in')
+  await shot('23-signed-back-in')
 
   await writeFile(join(OUT, 'summary.json'), JSON.stringify({ ai: health, ...summary }, null, 2))
   console.log('\n✅ End-to-end demo passed. Output in demo-output/')

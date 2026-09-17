@@ -1,9 +1,9 @@
 /* Minimal IndexedDB wrapper — no dependencies.
    Stores: projects, photos (metadata), blobs (original + thumbnail per photo), albums. */
-import type { Album, Photo, Project } from './types'
+import type { Album, Delivery, Photo, Project } from './types'
 
 const DB_NAME = 'albumed'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 export interface BlobRecord {
   photoId: string
@@ -30,6 +30,8 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('blobs')) db.createObjectStore('blobs', { keyPath: 'photoId' })
       if (!db.objectStoreNames.contains('albums')) db.createObjectStore('albums', { keyPath: 'projectId' })
+      // v2: what a studio has sent to a customer's number.
+      if (!db.objectStoreNames.contains('deliveries')) db.createObjectStore('deliveries', { keyPath: 'id' })
     }
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)
@@ -99,6 +101,13 @@ export const getAlbum = (projectId: string) =>
   tx<({ projectId: string } & Album) | undefined>('albums', 'readonly', (s) => s.get(projectId))
 export const putAlbum = (projectId: string, album: Album) =>
   tx('albums', 'readwrite', (s) => s.put({ projectId, ...album })).then(() => album)
+
+/* ---------- deliveries (studio -> customer) ---------- */
+
+export const getDeliveries = () => tx<Delivery[]>('deliveries', 'readonly', (s) => s.getAll())
+export const getDelivery = (id: string) => tx<Delivery | undefined>('deliveries', 'readonly', (s) => s.get(id))
+export const putDelivery = (d: Delivery) => tx('deliveries', 'readwrite', (s) => s.put(d)).then(() => d)
+export const deleteDelivery = (id: string) => tx('deliveries', 'readwrite', (s) => s.delete(id)).then(() => undefined)
 
 /* ---------- storage estimate ---------- */
 

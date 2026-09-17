@@ -18,6 +18,9 @@ import { applyOps } from './lib/applyOps'
 import { uid as newId } from './lib/id'
 import { planOf, readPlan, writePlan, type Plan, type PlanId } from './lib/plan'
 import { matchOriginals } from './lib/reimport'
+import { openDelivery, pendingFor, seedDemoDelivery, sendDelivery, sentBy, type SendOptions } from './lib/studio'
+import type { Session } from './lib/auth'
+import type { Delivery } from './lib/types'
 
 export type ProjectInit = Partial<Omit<Project, 'album'>> & { album?: Partial<AlbumOptions> }
 
@@ -94,6 +97,18 @@ interface Ctx {
   dismissPaywall: () => void
   /** Re-import the originals for photos already in this album, at the new plan's quality. */
   reimportOriginals: (files: File[]) => Promise<{ upgraded: number; unmatched: number }>
+
+  /* ---- studio <-> customer ---- */
+  session: Session
+  /** Deliveries addressed to this number that have not been opened yet. */
+  inbox: Delivery[]
+  /** Deliveries this studio has sent. */
+  sent: Delivery[]
+  refreshDeliveries: () => Promise<void>
+  /** Open a delivery as an album of your own. Returns the project id. */
+  openInboxItem: (deliveryId: string) => Promise<string>
+  /** Send the open event to a customer's mobile number. */
+  sendToCustomer: (opts: Omit<SendOptions, 'studioPhone'>) => Promise<{ sent: number; rejected: string[] }>
 }
 
 const AppCtx = createContext<Ctx | null>(null)
@@ -129,7 +144,7 @@ function hydrate(p: Project): Project {
 
 const themeCatalogue = () => THEMES.map((t) => ({ id: t.id, name: t.name, occasion: t.occasion, blurb: t.blurb }))
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
+export function AppProvider({ session, children }: { session: Session; children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [project, setProject] = useState<Project | null>(null)
@@ -137,10 +152,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [album, setAlbum] = useState<Album | null>(null)
   const [progress, setProgress] = useState<Progress | null>(null)
   const [toast, setToast] = useState<string | null>(null)
-  const [planId, setPlanId] = useState<PlanId>(() => readPlan())
+  const [planId, setPlanId] = useState<PlanId>(() => readPlan(session.phone))
   const [paywall, setPaywall] = useState<Paywall | null>(null)
   const [ai, setAi] = useState<AiState>({ enabled: false, model: '', demo: false, batch: 6, busy: null })
   const [chat, setChat] = useState<ChatTurn[]>([])
+  const [inbox, setInbox] = useState<Delivery[]>([])
+  const [sent, setSent] = useState<Delivery[]>([])
   const undoStack = useRef<Array<{ project: Project; photos: Photo[] }>>([])
   const [canUndo, setCanUndo] = useState(false)
   const plan = useMemo(() => planOf(planId), [planId])
@@ -151,15 +168,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   projectRef.current = project
   photosRef.current = photos
 
+  // Albums belong to the number that made them: on one device a studio and the
+  // family it sent to must not see each other's work. Albums from before
+  // sign-in have no owner and stay visible.
+  const isMine = useCallback((p: Project) => !p.ownerPhone || p.ownerPhone === session.phone, [session.phone])
+
   const refreshProjects = useCallback(async () => {
-    const list = await db.getProjects()
+    const list = (await db.getProjects()).filter(isMine)
     list.sort((a, b) => b.updatedAt - a.updatedAt)
     setProjects(list)
-  }, [])
+  }, [isMine])
 
   useEffect(() => {
     refreshProjects().finally(() => setReady(true))
   }, [refreshProjects])
+
+  // Signing in as somebody else brings their plan with them.
+  useEffect(() => {
+    setPlanId(readPlan(session.phone))
+  }, [session.phone])
 
   useEffect(() => {
     fetchAiStatus().then((s) => setAi((prev) => ({ ...prev, ...s })))
@@ -186,6 +213,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const now = Date.now()
       const p: Project = {
         id: uid('prj_'),
+        ownerPhone: session.phone,
         title: init.title?.trim() || 'Our Album',
         hosts: init.hosts?.trim() || '',
         eventDate: init.eventDate ?? '',
@@ -202,12 +230,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await refreshProjects()
       return p
     },
-    [refreshProjects],
+    [refreshProjects, session.phone],
   )
 
   const openProject = useCallback(async (id: string) => {
     const raw = await db.getProject(id)
-    if (!raw) return
+    if (!raw || !isMine(raw)) return
     const p = hydrate(raw)
     setProject(p)
     setPhotos(await db.getPhotos(id))
@@ -215,7 +243,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setChat([])
     undoStack.current = []
     setCanUndo(false)
-  }, [])
+  }, [isMine])
 
   const closeProject = useCallback(() => {
     setProject(null)
@@ -517,7 +545,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setPlan = useCallback((id: PlanId) => {
     setPlanId(id)
-    writePlan(id)
+    writePlan(id, session.phone)
     setPaywall(null)
     const next = planOf(id)
     setToast(
@@ -525,7 +553,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ? `${next.name} is on. New photos import at full quality — re-import your originals to upgrade this album.`
         : `Switched to ${next.name}.`,
     )
-  }, [])
+  }, [session.phone])
 
   const showPaywall = useCallback((p: Paywall) => setPaywall(p), [])
   const dismissPaywall = useCallback(() => setPaywall(null), [])
@@ -869,6 +897,98 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     db.getPhotos(project.id).then((list) => buildAlbum(project, list))
   }, [project, buildAlbum])
 
+  /* ---------------- studio <-> customer ---------------- */
+
+  const refreshDeliveries = useCallback(async () => {
+    if (session.role === 'studio') {
+      setSent(await sentBy(session.phone))
+      setInbox([])
+    } else {
+      setInbox(await pendingFor(session.phone))
+      setSent([])
+    }
+  }, [session.phone, session.role])
+
+  // On a customer's first visit, put a take in their inbox, so signing in looks
+  // like what it will look like in use: the photographer has already sent your
+  // photos. Labelled as a demo delivery wherever it appears.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (session.role !== 'customer') {
+        await refreshDeliveries()
+        return
+      }
+      const waiting = await pendingFor(session.phone)
+      const mine = (await db.getProjects()).filter(isMine)
+      if (waiting.length || mine.length) {
+        if (!cancelled) setInbox(waiting)
+        return
+      }
+      setProgress({ done: 0, total: 1, label: 'Your photographer is sending your photos' })
+      try {
+        const samples: Array<{ blob: Blob; name: string }> = []
+        const count = Math.max(await realSampleCount(), SAMPLE_COUNT)
+        for (let i = 0; i < count; i++) samples.push(await makeSamplePhoto(i))
+        await seedDemoDelivery(session.phone, samples, (done, total) =>
+          setProgress({ done, total, label: 'Your photographer is sending your photos' }),
+        )
+      } catch (err) {
+        console.error('Could not prepare the demo delivery', err)
+      } finally {
+        setProgress(null)
+      }
+      if (!cancelled) setInbox(await pendingFor(session.phone))
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [session.phone, session.role, refreshDeliveries, isMine])
+
+  const openInboxItem = useCallback(
+    async (deliveryId: string) => {
+      const limits = planRef.current.limits
+      setProgress({ done: 0, total: 1, label: 'Opening your photos' })
+      try {
+        const result = await openDelivery(deliveryId, session.phone, {
+          limits,
+          onProgress: (done, total, name) =>
+            setProgress({ done, total, label: name ? `Saving ${name}` : 'Opening your photos' }),
+        })
+        await refreshProjects()
+        await refreshDeliveries()
+        if (result.overflow) {
+          setPaywall({
+            reason: `${result.overflow} photo${result.overflow > 1 ? 's' : ''} did not fit`,
+            detail: `${planRef.current.name} albums hold ${limits.maxPhotosPerAlbum} photos. A bigger plan holds the whole take.`,
+          })
+        } else if (!result.reopened && !limits.printGrade) {
+          setToast('Your photos are here — stored as compressed copies on Free.')
+        }
+        return result.project.id
+      } finally {
+        setProgress(null)
+      }
+    },
+    [session.phone, refreshProjects, refreshDeliveries],
+  )
+
+  const sendToCustomer = useCallback(
+    async (opts: Omit<SendOptions, 'studioPhone'>) => {
+      const cur = projectRef.current
+      if (!cur) throw new Error('Open an event first.')
+      setProgress({ done: 0, total: 1, label: 'Sending to your customer' })
+      try {
+        const { delivery, rejected } = await sendDelivery(cur, { ...opts, studioPhone: session.phone })
+        await refreshDeliveries()
+        return { sent: delivery.toPhones.length, rejected }
+      } finally {
+        setProgress(null)
+      }
+    },
+    [session.phone, refreshDeliveries],
+  )
+
   const value = useMemo<Ctx>(
     () => ({
       ready,
@@ -912,6 +1032,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       showPaywall,
       dismissPaywall,
       reimportOriginals,
+      session,
+      inbox,
+      sent,
+      refreshDeliveries,
+      openInboxItem,
+      sendToCustomer,
     }),
     [
       ready,
@@ -954,6 +1080,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       showPaywall,
       dismissPaywall,
       reimportOriginals,
+      session,
+      inbox,
+      sent,
+      refreshDeliveries,
+      openInboxItem,
+      sendToCustomer,
     ],
   )
 

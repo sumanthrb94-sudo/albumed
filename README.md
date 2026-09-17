@@ -64,17 +64,21 @@ npm run build && npm run demo
 ```
 
 This drives the real product in a real browser against a mock Claude upstream, so it works with no
-API key and no network. Entry to exit: **sign in with a phone number and a one-time code** → create
-on the free plan → upload → **see the compression comparison** → **AI review** → **AI plan** →
-**three AI edits** → **undo** → **free watermarked draft** → hit the paywall → **subscribe** →
-**re-import originals** → 300 dpi export → reload → **sign out and sign back in**.
+API key and no network. Entry to exit, **both sides**: the studio signs in → takes a studio plan →
+makes the event → adds the 25-photo take → **sends it to the family's mobile number** → sign out →
+**the family signs in and the photos are waiting** → open → **see the compression comparison** →
+**AI review** → **AI plan** → **three AI edits** → **undo** → **free watermarked draft** → hit the
+paywall → **subscribe** → **re-import originals** → 300 dpi export → reload → **sign out and sign
+back in**.
 
 It asserts as it goes: a half-typed number is refused, a wrong code is refused and counted, the
-right one gets in, every photo tagged, chapters produced, the template actually changed, press
-resolutions locked on free and unlocked after subscribing, the originals replacing the compressed
-copies, the paid PDF carrying at least 1.5× the data of the free draft, the page count matching the
-preview, the album and the session both surviving a reload, and the albums still there after a sign
-out and sign back in. Screenshots, both PDFs and `summary.json` land in `demo-output/`.
+right one gets in, the studio's own event never appears on the family's side, every photo the studio
+sent arrives, the free copy is measurably smaller than what was sent, every photo tagged, chapters
+produced, the template actually changed, press resolutions locked on free and unlocked after
+subscribing, the originals replacing the compressed copies, the paid PDF carrying at least 1.5× the
+data of the free draft, the page count matching the preview, the album and the session both
+surviving a reload, and the albums still there after a sign out and sign back in. Screenshots, both
+PDFs and `summary.json` land in `demo-output/`.
 
 Run the same script against the shipped demo mode with `ALBUMED_DEMO_AI=1 npm run demo` — no mock
 upstream at all, exactly what a deployment with no key serves — or against the real API with
@@ -184,6 +188,33 @@ Gujarati, Punjabi or English**, in their own script, using self-hosted Noto Seri
 
 ---
 
+## Two sides: the studio and the family
+
+**The photographer registers the number; the family signs in and their photos are already there.**
+That is the whole shape of it.
+
+**The studio side** — sign in as a studio, make the event, add the take, and address it to the
+family's mobile numbers. A wedding has two or three people who get a say, so it takes a list. The
+send panel tells you what quality is going out, and refuses to pretend: a studio on Free has only
+compressed copies, so that is all it can send. What the family then *keeps* depends on the family's
+own plan, which is where the subscription argument lives.
+
+**The family's side** — sign in with that number and the take is waiting in an inbox on the home
+screen, with the studio's name, their message and a strip of thumbnails. Open it and you land
+straight in the selection, not in an empty uploader. Keep, drop, star, caption, leave a note. Confirm
+the selection and the album is built from what you chose.
+
+**There is no backend.** A delivery is a record in the same IndexedDB, addressed by phone number, so
+both halves can be demonstrated on one device: sign in as the studio, send, sign out, sign in as the
+family. `sendDelivery` and `deliveriesFor` in `src/lib/studio.ts` are the only two functions a real
+server would replace. Everything else — the addressing rules, the per-account plan, the re-encode at
+the receiving end — is what it would be in production, and is unit-tested.
+
+Albums and plans belong to the number that owns them. On one device the studio and the family cannot
+see each other's work, and the studio subscribing does not quietly put the family on a paid plan.
+
+---
+
 ## The rest of the flow
 
 **Sign in** — an Indian mobile number and a six digit code. **There is no backend behind this**: the
@@ -205,9 +236,10 @@ selection — that is the gate, whether you curate by hand or let the assistant 
 **Album** — every page rendered exactly as it prints, per-page layout re-shuffle and reorder, PDF
 export at 150 / 200 / 300 dpi, single pages as JPG, and the native share sheet on a phone.
 
-**Handover** — a project moves between photographer and customer as an `*.albumed.json` file: a
-thumbnails-only copy small enough to send over chat, and a *merge decisions back in* import that
-applies the customer's approvals to your full-resolution copy.
+**Handover** — the in-app delivery above is the normal route. A project can also move as an
+`*.albumed.json` file, for a customer who is not on the app: a thumbnails-only copy small enough to
+send over chat, and a *merge decisions back in* import that applies the customer's approvals to your
+full-resolution copy.
 
 ---
 
@@ -217,6 +249,7 @@ applies the customer's approvals to your full-resolution copy.
 src/
   lib/
     auth.ts         phone + one-time code, simulated in the browser  (unit-tested)
+    studio.ts       studio -> customer delivery, addressed by phone number
     plan.ts         the plans and every limit the product enforces
     reimport.ts     matching re-picked originals to the photos already in an album
     aiContract.ts   Zod schemas shared by browser and server — the AI's output contract
@@ -231,7 +264,7 @@ src/
     pdf.ts          PDF / JPG export, share sheet
     bundle.ts       project file export, import, decision merge
   components/       PageCanvas, ThemeGallery, Assistant, AlbumChat, Paywall,
-                    QualityCompare, ErrorBoundary
+                    QualityCompare, Inbox, SendToCustomer, ErrorBoundary
   screens/          SignIn, Home, Upload, Review, Design, AlbumView
   store.tsx         app state and the three AI passes
 server/
@@ -245,6 +278,7 @@ tests/
   applyOps.test.ts  the edit applier, including malformed model output
   layout.test.ts    template geometry, chapters, featured pages, determinism
   auth.test.ts      the sign-in flow: expiry, attempt limit, cooldown, sessions
+  studio.test.ts    who a delivery reaches, and whose plan is whose
   demoAi.test.ts    demo mode's output, which a presentation prints
   plan.test.ts      plan limits never regress, and re-import matching
   build.test.ts     the deployed shape: absolute assets, CSP, api/ routes
@@ -253,7 +287,7 @@ tests/
   mock-anthropic.mjs
 scripts/
   demo-e2e.mjs      the browser demo driver
-  screenshots.mjs   the entry-to-exit walkthrough capture (25 PNGs)
+  screenshots.mjs   the entry-to-exit walkthrough capture (28 PNGs)
   fetch-fonts.mjs   re-downloads the self-hosted fonts
   make-icons.mjs    generates the app icons (no image dependencies)
 ```
@@ -357,6 +391,10 @@ with the Anthropic SDK and validates every reply against the same Zod schemas th
 
 ## Limits worth knowing
 
+- **The delivery is a simulation too.** A studio and the family it sends to are, in this demo, two
+  sign-ins on one device sharing one IndexedDB. Sending to a number on somebody else's phone needs a
+  server: `src/lib/studio.ts` is written so that is a two-function change, and the project file
+  export already covers a real handover today.
 - **The sign-in is a simulation.** The one-time code is generated in the browser and shown on
   screen, which is not authentication — it demonstrates the flow. Anyone typing any valid Indian
   mobile number gets in, and the session only gates this device's own albums, which were never on a
