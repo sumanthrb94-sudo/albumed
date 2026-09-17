@@ -631,4 +631,9 @@ textarea { min-height: 70px; resize: vertical; }
 @media (max-width: 560px) {
   .account-chip .full { display: none; }
   .account-chip .short { display: inline; }
+  /* Brand, status, plan, demo and account will not all fit across a phone.
+     The step nav already says where you are, so the status chip goes. */
+  .topbar .chip.status { display: none; }
+  .topbar .sub { display: none; }
+  .topbar { gap: 8px; }
 }

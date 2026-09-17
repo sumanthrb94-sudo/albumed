@@ -245,6 +245,7 @@ tests/
   applyOps.test.ts  the edit applier, including malformed model output
   layout.test.ts    template geometry, chapters, featured pages, determinism
   auth.test.ts      the sign-in flow: expiry, attempt limit, cooldown, sessions
+  demoAi.test.ts    demo mode's output, which a presentation prints
   plan.test.ts      plan limits never regress, and re-import matching
   build.test.ts     the deployed shape: absolute assets, CSP, api/ routes
   api.test.ts       the server end to end against a mock upstream
@@ -252,6 +253,7 @@ tests/
   mock-anthropic.mjs
 scripts/
   demo-e2e.mjs      the browser demo driver
+  screenshots.mjs   the entry-to-exit walkthrough capture (25 PNGs)
   fetch-fonts.mjs   re-downloads the self-hosted fonts
   make-icons.mjs    generates the app icons (no image dependencies)
 ```

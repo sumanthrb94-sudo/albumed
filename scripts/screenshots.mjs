@@ -75,7 +75,7 @@ try {
   await page.fill('input[placeholder="Sireesha & Karthik"]', 'Sireesha  ·  Karthik')
   await page.fill('input[placeholder="14 February 2026"]', '14 February 2026')
   await page.fill('input[placeholder="Kalyana Mandapam, Rajahmundry"]', 'Kalyana Mandapam, Rajahmundry')
-  await shot('New album — templates grouped by region', { full: true })
+  await shot('New album — title, hosts, date, venue and style', { full: true })
 
   await page.selectOption('select', 'godavari')
   await page.click('text=Create album')
@@ -118,6 +118,25 @@ try {
     timeout: 90000,
   })
   await shot('Edited by asking — template changed, pages re-flowed', { settle: 2500, scrollTo: '.chat' })
+
+  // the template gallery — every cover painted with this album's own photograph
+  await page.click('.step:has-text("Template")')
+  await page.waitForSelector('.theme-grid .theme-card canvas')
+  await page.setViewportSize({ width: 1100, height: 1000 })
+  await page.waitForTimeout(3500)
+  // The sticky action bar floats over the middle of the grid in a tall capture.
+  await page.addStyleTag({ content: '.sticky-actions{visibility:hidden !important}' })
+  await shot('35 album templates, each previewed with your own cover', {
+    element: '.card:has(.theme-grid)',
+    settle: 2000,
+  })
+  await page.click('.filters button:has-text("Andhra & Telangana")')
+  await shot('Filtered to Andhra & Telangana — home ground', { element: '.card:has(.theme-grid)', settle: 1800 })
+  await page.addStyleTag({ content: '.sticky-actions{visibility:visible !important}' })
+  await page.setViewportSize({ width: 430, height: 932 })
+  await page.click('.step:has-text("Album")')
+  await page.waitForSelector('text=Download album PDF', { timeout: 60000 })
+  await page.waitForTimeout(2500)
 
   // the printed pages themselves
   await page.setViewportSize({ width: 1100, height: 1000 })

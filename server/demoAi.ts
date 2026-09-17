@@ -7,6 +7,7 @@
 
    Every response says demo: true, and the UI labels it. Scripted output must
    never be able to pass as live AI. */
+import type { PHOTO_ISSUES } from '../src/lib/aiContract.js'
 import type {
   CurateRequest,
   CurateResult,
@@ -29,21 +30,71 @@ function hash(s: string): number {
   return (h >>> 0) / 4294967296
 }
 
-/** The running order of a Telugu wedding, which is what the demo album is. */
+/** The running order of a Telugu wedding, which is what the demo album is.
+    Two captions per ceremony: a wedding has several frames of the same moment,
+    and printing the identical line under both reads as a bug. */
 const RUNNING_ORDER = [
-  { ceremony: 'pellikuthuru', caption: 'Turmeric and laughter before the day', native: 'పెళ్లికూతురు' },
-  { ceremony: 'snathakam', caption: 'The groom, halfway to a new life', native: 'స్నాతకం' },
-  { ceremony: 'kashi-yatra', caption: 'Talked out of leaving for Kashi', native: 'కాశీ యాత్ర' },
-  { ceremony: 'madhuparkam', caption: 'White silk and gold, both families watching', native: 'మధుపర్కం' },
-  { ceremony: 'jeelakarra-bellam', caption: 'Cumin and jaggery, at the exact moment', native: 'జీలకర్ర బెల్లం' },
-  { ceremony: 'mangalsutra-dharana', caption: 'Three knots, and the sannai rises', native: 'మంగళసూత్ర ధారణ' },
-  { ceremony: 'talambralu', caption: 'Rice everywhere, nobody minding', native: 'తలంబ్రాలు' },
-  { ceremony: 'kanyadanam', caption: "Her father's hands over theirs", native: 'కన్యాదానం' },
-  { ceremony: 'appaginthalu', caption: 'The hardest few minutes of the day', native: 'అప్పగింతలు' },
-  { ceremony: 'mandap-decor', caption: 'Banana stems, marigolds, morning light', native: 'మండపం' },
-  { ceremony: 'reception', caption: 'On stage, finally able to breathe', native: 'రిసెప్షన్' },
-  { ceremony: 'family-portrait', caption: 'Everyone, in one frame, once', native: 'కుటుంబం' },
+  { ceremony: 'pellikuthuru', captions: ['Turmeric and laughter before the day', 'Held still, just about'], native: 'పెళ్లికూతురు' },
+  { ceremony: 'pellikoduku', captions: ['The groom gets his turn', 'Turmeric, and no escape'], native: 'పెళ్లికొడుకు' },
+  { ceremony: 'snathakam', captions: ['The groom, halfway to a new life', 'Thread, staff and a straight face'], native: 'స్నాతకం' },
+  { ceremony: 'kashi-yatra', captions: ['Talked out of leaving for Kashi', 'The umbrella never made it far'], native: 'కాశీ యాత్ర' },
+  { ceremony: 'baraat', captions: ['The street belongs to them', 'Drums the whole way down'], native: 'బరాత్' },
+  { ceremony: 'madhuparkam', captions: ['White silk and gold, both families watching', 'The first look, formally'], native: 'మధుపర్కం' },
+  { ceremony: 'jeelakarra-bellam', captions: ['Cumin and jaggery, at the exact moment', 'Hands held over her head'], native: 'జీలకర్ర బెల్లం' },
+  { ceremony: 'mangalsutra-dharana', captions: ['Three knots, and the sannai rises', 'The thaali, and the room goes quiet'], native: 'మంగళసూత్ర ధారణ' },
+  { ceremony: 'talambralu', captions: ['Rice everywhere, nobody minding', 'She is winning this one'], native: 'తలంబ్రాలు' },
+  { ceremony: 'kanyadanam', captions: ["Her father's hands over theirs", 'Given away, and holding on'], native: 'కన్యాదానం' },
+  { ceremony: 'appaginthalu', captions: ['The hardest few minutes of the day', 'Nobody is pretending now'], native: 'అప్పగింతలు' },
+  { ceremony: 'mandap-decor', captions: ['Banana stems, marigolds, morning light', 'Nadaswaram, before anyone arrives'], native: 'మండపం' },
+  { ceremony: 'family-portrait', captions: ['Everyone, in one frame, once', 'Four generations, standing still'], native: 'కుటుంబం' },
+  { ceremony: 'mehendi', captions: ['Green paste, dark stain, hours of it', 'Her hands, finished'], native: 'మెహందీ' },
+  { ceremony: 'sangeet', captions: ['The cousins had rehearsed', 'Nobody sat down for this one'], native: 'సంగీత్' },
+  { ceremony: 'sadhya', captions: ['Banana leaf, and no cutlery', 'Second helpings, already'], native: 'విందు' },
+  { ceremony: 'candid', captions: ['Between the ceremonies', 'Caught not posing'], native: 'సందడి' },
+  { ceremony: 'reception', captions: ['On stage, finally able to breathe', 'The last of the queue'], native: 'రిసెప్షన్' },
 ] as const
+
+/** Demo mode cannot see the photograph, so it reads the filename — which is how
+    a scripted stand-in stays honest. An unrecognised name falls back to the
+    running order, keyed off the photo id so it is stable across batches. */
+const NAME_HINTS: Array<[RegExp, string]> = [
+  [/pellikoduku/, 'pellikoduku'],
+  [/pellikuthuru/, 'pellikuthuru'],
+  [/snathakam/, 'snathakam'],
+  [/kashi/, 'kashi-yatra'],
+  [/baraat/, 'baraat'],
+  [/madhuparkam/, 'madhuparkam'],
+  [/jeelakarra/, 'jeelakarra-bellam'],
+  [/thaali|mangalsutra|muhurtham/, 'mangalsutra-dharana'],
+  [/talambralu/, 'talambralu'],
+  [/kanyadanam/, 'kanyadanam'],
+  [/appaginthalu|vidaai/, 'appaginthalu'],
+  [/mandapam|mandap|sannai|melam/, 'mandap-decor'],
+  [/family|elders|blessing/, 'family-portrait'],
+  [/mehendi|henna/, 'mehendi'],
+  [/sangeet|dance/, 'sangeet'],
+  [/sadhya|feast|bhojan/, 'sadhya'],
+  [/reception/, 'reception'],
+  [/couple|portrait|candid|detail|jewell/, 'candid'],
+]
+
+/** The frames a studio would bin, named so the cull has something real to find. */
+const BAD_FRAMES: Array<[RegExp, (typeof PHOTO_ISSUES)[number], string]> = [
+  [/blurry|motion/, 'blurry', 'Motion blur across the whole frame — nothing to recover.'],
+  [/eyes-closed|blink/, 'eyes-closed', 'Half the group is mid-blink. The next frame is the one.'],
+  [/obstructed|blocked/, 'obstructed', "A guest's phone is across the lens at the moment it mattered."],
+]
+
+/* One reason repeated down the whole panel reads as a template, which is the
+   one thing a reasoning panel must not look like. */
+const KEEP_REASONS = [
+  'Sharp, both families in frame, the moment is readable.',
+  'The expressions carry it — nobody is looking at the camera.',
+  'Clean light, and the ritual is legible at a glance.',
+  'Best of the set: focus on the faces that matter.',
+  'Holds the whole scene without losing the couple.',
+  'The hands tell the story here, and they are sharp.',
+]
 
 const DROP_REASONS = [
   'Softer copy of a better frame in the same set.',
@@ -54,25 +105,32 @@ const DROP_REASONS = [
 export function demoCurate(req: CurateRequest): CurateResult {
   const wantsNative = req.language !== 'english'
   return {
-    verdicts: req.photos.map((p, i) => {
+    verdicts: req.photos.map((p) => {
       const r = hash(p.id)
-      const slot = RUNNING_ORDER[i % RUNNING_ORDER.length]
-      // Drop roughly one in six, the way a real cull goes.
-      const keep = r > 0.17
+      const name = (p.name ?? '').toLowerCase()
+      const hinted = NAME_HINTS.find(([re]) => re.test(name))?.[1]
+      const slot =
+        RUNNING_ORDER.find((o) => o.ceremony === hinted) ??
+        RUNNING_ORDER[Math.floor(r * RUNNING_ORDER.length)]
+      const bad = BAD_FRAMES.find(([re]) => re.test(name))
+      // A named bad frame always goes; otherwise drop roughly one in six, the
+      // way a real cull goes.
+      const keep = bad ? false : r > 0.17
       return {
         id: p.id,
         ceremony: slot.ceremony,
         score: keep ? Math.round(58 + r * 40) : Math.round(22 + r * 25),
         keep,
         hero: keep && r > 0.86,
-        issues: keep ? [] : ([r > 0.5 ? 'blurry' : 'eyes-closed'] as CurateResult['verdicts'][number]['issues']),
-        caption: slot.caption,
+        issues: keep ? [] : ([bad ? bad[1] : r > 0.5 ? 'blurry' : 'eyes-closed'] as CurateResult['verdicts'][number]['issues']),
+        // Two frames of the same ceremony must not print the same line.
+        caption: slot.captions[Math.floor(r * slot.captions.length)],
         caption_native: wantsNative ? slot.native : '',
         focus_x: 0.42 + r * 0.16,
         focus_y: 0.34 + r * 0.14,
         reason: keep
-          ? 'Sharp, both families in frame, the moment is readable.'
-          : DROP_REASONS[Math.floor(r * DROP_REASONS.length)],
+          ? KEEP_REASONS[Math.floor(r * KEEP_REASONS.length)]
+          : (bad?.[2] ?? DROP_REASONS[Math.floor(r * DROP_REASONS.length)]),
       }
     }),
   }
@@ -89,6 +147,12 @@ const CHAPTER_TITLES: Record<string, { title: string; native: string; blurb: str
   kanyadanam: { title: 'Kanyadanam', native: 'కన్యాదానం', blurb: 'Her father gives her hands away' },
   appaginthalu: { title: 'Appaginthalu', native: 'అప్పగింతలు', blurb: 'The hardest few minutes of the day' },
   'mandap-decor': { title: 'The Mandapam', native: 'మండపం', blurb: 'Banana stems, marigolds, morning light' },
+  pellikoduku: { title: 'Pellikoduku', native: 'పెళ్లికొడుకు', blurb: 'The groom gets his turn with the turmeric' },
+  baraat: { title: 'The Baraat', native: 'బరాత్', blurb: 'Drums, and the street belongs to them' },
+  mehendi: { title: 'Mehendi', native: 'మెహందీ', blurb: 'Green paste, dark stain, hours of it' },
+  sangeet: { title: 'Sangeet', native: 'సంగీత్', blurb: 'The cousins had rehearsed' },
+  sadhya: { title: 'The Feast', native: 'విందు', blurb: 'Banana leaf, and no cutlery' },
+  candid: { title: 'In Between', native: 'సందడి', blurb: 'The day when nobody was posing' },
   reception: { title: 'Reception', native: 'రిసెప్షన్', blurb: 'On stage, finally able to breathe' },
   'family-portrait': { title: 'Everyone', native: 'కుటుంబం', blurb: 'One frame, one time, the whole family' },
 }
@@ -126,13 +190,27 @@ export function demoStory(req: StoryRequest): Story {
     })
   }
 
+  // Too many chapters means a divider page every other spread. Fold the
+  // thinnest into a neighbour until it reads as an album rather than an index —
+  // merging, never slicing, because a dropped chapter is dropped photographs.
+  const MAX_CHAPTERS = 7
+  while (chapters.length > MAX_CHAPTERS) {
+    let thinnest = 0
+    for (let i = 1; i < chapters.length; i++) {
+      if (chapters[i].photo_ids.length < chapters[thinnest].photo_ids.length) thinnest = i
+    }
+    const into = thinnest === 0 ? 1 : thinnest - 1
+    chapters[into].photo_ids.push(...chapters[thinnest].photo_ids)
+    chapters.splice(thinnest, 1)
+  }
+
   const hero = req.photos.find((p) => p.hero) ?? req.photos[0]
   return {
     title: req.hosts ? 'Maa Pelli' : 'Our Wedding',
     subtitle: req.hosts || 'The couple',
     theme_id: 'godavari',
     cover_photo_id: hero?.id ?? '',
-    chapters: chapters.slice(0, 6),
+    chapters,
     closing_line: 'With the blessings of both our families',
     closing_native: req.language === 'english' ? '' : 'ధన్యవాదాలు',
     notes: 'Built around the muhurtham, with the reception at the end. (Demo mode — scripted, not live AI.)',

@@ -141,7 +141,7 @@ function Shell({ session, onSignOut }: { session: Session; onSignOut: () => void
           </div>
         </button>
         <span className="spacer" />
-        {project && <span className={`chip ${project.status}`}>{project.status === 'collecting' ? 'Collecting' : project.status === 'review' ? 'In review' : 'Finalized'}</span>}
+        {project && <span className={`chip status ${project.status}`}>{project.status === 'collecting' ? 'Collecting' : project.status === 'review' ? 'In review' : 'Finalized'}</span>}
         <button
           className={`plan-chip${app.plan.limits.printGrade ? ' paid' : ''}`}
           onClick={() =>
@@ -154,7 +154,7 @@ function Shell({ session, onSignOut }: { session: Session; onSignOut: () => void
         >
           {app.plan.limits.printGrade ? `★ ${app.plan.name}` : 'Free'}
         </button>
-        {app.ai.demo && <span className="chip review" title="The assistant is returning scripted replies">Demo AI</span>}
+        {app.ai.demo && <span className="chip demo" title="The assistant is returning scripted replies">Demo AI</span>}
         <InstallButton />
         <Account session={session} onSignOut={onSignOut} />
       </header>
