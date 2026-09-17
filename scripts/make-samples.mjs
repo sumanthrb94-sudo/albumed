@@ -5,7 +5,7 @@
    run on real photographic detail rather than drawn shapes. */
 import { GoogleGenAI } from '@google/genai'
 import { writeFile } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 const OUT = resolve(new URL('../public/samples', import.meta.url).pathname)
@@ -47,6 +47,81 @@ const SCENES = [
       'Detail photograph of an empty South Indian wedding mandapam before the ceremony: banana stems tied at the pillars, thick marigold and mango-leaf garlands, brass lamps lit, a rangoli muggu on the floor in rice flour. No people. Soft morning light.',
   },
   {
+    file: '11-muhurtham-thaali.jpg',
+    prompt:
+      'The mangalsutra dharana at a Telugu wedding: the groom tying the thaali around the bride\'s neck, her head bowed, both sets of hands in frame, the priest\'s arm at the edge. The single most important frame of the day. Red and gold Kanjeevaram silk, mandapam, warm light.',
+  },
+  {
+    file: '12-muhurtham-thaali-alt.jpg',
+    prompt:
+      'The same mangalsutra moment at a Telugu wedding a second later, seen slightly wider: groom tying the thaali, bride with eyes lowered, relatives visible behind holding rice, one hand raised mid-blessing. Nearly the same composition as the previous frame. Mandapam, warm light.',
+  },
+  {
+    file: '13-talambralu-alt.jpg',
+    prompt:
+      'A second frame of the talambralu ritual, a moment after the first: the bride pouring rice over the groom while he shields his face and laughs, rice scattered on their shoulders. Same couple, same mandapam, very similar composition to the earlier talambralu photograph.',
+  },
+  {
+    file: '14-mehendi-hands.jpg',
+    prompt:
+      "Close detail of an Indian bride's hands covered in intricate fresh dark mehendi, resting in her lap on red silk, gold and red bangles stacked at the wrists. Shallow depth of field, soft window light.",
+  },
+  {
+    file: '15-pellikoduku.jpg',
+    prompt:
+      'Pellikoduku ceremony: a young Indian groom seated on a low wooden stool while male relatives and his mother apply turmeric paste to his arms and face, everyone laughing. Home courtyard, morning daylight.',
+  },
+  {
+    file: '16-baraat.jpg',
+    prompt:
+      'A South Indian wedding procession at dusk: the groom garlanded and walking under a decorated umbrella, family dancing around him, a brass band with trumpets and drums, string lights overhead. Motion and energy, warm evening light.',
+  },
+  {
+    file: '17-sannai-melam.jpg',
+    prompt:
+      'Two elderly South Indian musicians playing nadaswaram and thavil at a wedding, cheeks puffed, absorbed in the music, seated to one side of the mandapam. Documentary detail, warm light.',
+  },
+  {
+    file: '18-elders-blessing.jpg',
+    prompt:
+      'An elderly Indian couple showering rice and blessing a newly married couple who are bowing to touch their feet. Emotional, restrained, mandapam with marigolds, warm afternoon light.',
+  },
+  {
+    file: '19-couple-portrait.jpg',
+    prompt:
+      'A posed portrait of a South Indian bride and groom standing together after the ceremony, looking at the camera, she in red and gold Kanjeevaram silk and temple jewellery, he in a cream silk dhoti and angavastram. Clean background, soft directional light, full length.',
+  },
+  {
+    file: '20-couple-candid.jpg',
+    prompt:
+      'A candid moment between a South Indian bride and groom: she is laughing with her head turned away, he is watching her rather than the camera. Unposed, natural, shallow depth of field, golden hour.',
+  },
+  {
+    file: '21-jewellery-detail.jpg',
+    prompt:
+      "Detail of a South Indian bride being dressed: her mother's hands fastening a gold temple-jewellery necklace at the back of her neck, jasmine strand in her hair, red silk blouse. Close, soft window light.",
+  },
+  {
+    file: '22-sadhya.jpg',
+    prompt:
+      'A South Indian wedding feast: rows of guests seated on the floor eating from banana leaves, servers walking the line with buckets, hands mid-motion. Documentary overhead-ish angle, bright hall.',
+  },
+  {
+    file: '23-blurry-dance.jpg',
+    prompt:
+      'A badly blurred photograph from an Indian wedding reception in South India: guests in sarees and kurtas dancing, heavy motion blur across the whole frame so faces are smeared and unreadable, camera shake, dim indoor banquet hall with marigold decorations. An out-of-focus throwaway frame, clearly unusable.',
+  },
+  {
+    file: '24-eyes-closed.jpg',
+    prompt:
+      'A group photograph at an Indian wedding that did not work: eight relatives posed together but three of them have their eyes shut mid-blink and one is looking away and talking. Otherwise well lit and sharp. The kind of frame a photographer discards.',
+  },
+  {
+    file: '25-obstructed.jpg',
+    prompt:
+      "A spoiled wedding photograph: a guest's shoulder and raised phone have crossed directly in front of the camera, blocking most of the bride and groom at the mandapam. Only a sliver of the couple is visible. The kind of frame a photographer discards.",
+  },
+  {
     file: '10-reception.jpg',
     prompt:
       'An Indian wedding reception: the couple on a decorated stage greeting guests, the bride in a deep green and gold silk saree, the groom in a cream sherwani, warm stage lighting and bokeh from fairy lights, guests queuing with gifts. Evening, indoor banquet hall.',
@@ -84,4 +159,19 @@ for (const scene of SCENES) {
     console.log(`  ✗ ${scene.file}: ${String(err.message ?? err).slice(0, 160)}`)
   }
 }
-console.log(`\n${made} new sample photos in public/samples/`)
+/* A manifest, so the app discovers the set at runtime and adding a photo never
+   means editing code. Labels come from the filename. */
+const listed = readdirSync(OUT)
+  .filter((f) => /^\d+-.*\.jpg$/.test(f))
+  .sort()
+  .map((file) => ({
+    file,
+    label: file
+      .replace(/^\d+-/, '')
+      .replace(/\.jpg$/, '')
+      .split('-')
+      .map((w) => w[0].toUpperCase() + w.slice(1))
+      .join(' '),
+  }))
+await writeFile(join(OUT, 'index.json'), JSON.stringify(listed, null, 2) + '\n')
+console.log(`\n${made} new sample photos; manifest lists ${listed.length} in public/samples/`)

@@ -224,27 +224,30 @@ interface RealSample {
   label: string
 }
 
-const REAL_SAMPLES: RealSample[] = [
-  { file: 'samples/01-pellikuthuru.jpg', label: 'Pellikuthuru' },
-  { file: 'samples/02-jeelakarra-bellam.jpg', label: 'Jeelakarra Bellam' },
-  { file: 'samples/03-talambralu.jpg', label: 'Talambralu' },
-  { file: 'samples/04-snathakam.jpg', label: 'Snathakam' },
-  { file: 'samples/05-kashi-yatra.jpg', label: 'Kashi Yatra' },
-  { file: 'samples/06-kanyadanam.jpg', label: 'Kanyadanam' },
-  { file: 'samples/07-appaginthalu.jpg', label: 'Appaginthalu' },
-  { file: 'samples/08-family-portrait.jpg', label: 'Family Portrait' },
-  { file: 'samples/09-mandapam.jpg', label: 'Mandapam' },
-  { file: 'samples/10-reception.jpg', label: 'Reception' },
-]
+/* The set is discovered from a manifest written by scripts/make-samples.mjs,
+   so adding a photograph is a file drop rather than a code change. */
+let manifest: Promise<RealSample[]> | null = null
+
+function realSamples(): Promise<RealSample[]> {
+  if (!manifest) {
+    manifest = fetch(`${import.meta.env.BASE_URL}samples/index.json`)
+      .then((r) => (r.ok ? (r.json() as Promise<RealSample[]>) : []))
+      .catch(() => [])
+  }
+  return manifest
+}
+
+/** How many real photographs are available, so callers can size the set. */
+export const realSampleCount = async (): Promise<number> => (await realSamples()).length
 
 async function loadRealSample(i: number): Promise<{ blob: Blob; name: string } | null> {
-  const sample = REAL_SAMPLES[i]
+  const list = await realSamples()
+  const sample = list[i]
   if (!sample) return null
   try {
-    const res = await fetch(`${import.meta.env.BASE_URL}${sample.file}`)
+    const res = await fetch(`${import.meta.env.BASE_URL}samples/${sample.file}`)
     if (!res.ok) return null
-    const blob = await res.blob()
-    return { blob, name: `${sample.label.toLowerCase().replace(/\s+/g, '-')}.jpg` }
+    return { blob: await res.blob(), name: sample.file.replace(/^\d+-/, '') }
   } catch {
     // Offline, or the file was not deployed — fall back to a drawn one.
     return null
@@ -362,5 +365,4 @@ async function drawSamplePhoto(index: number): Promise<{ blob: Blob; name: strin
   return { blob, name: `sample-${String(index + 1).padStart(2, '0')}-${scene.label.toLowerCase()}.jpg` }
 }
 
-export const SAMPLE_COUNT = Math.max(SAMPLE_SCENES.length, REAL_SAMPLES.length)
-export const REAL_SAMPLE_COUNT = REAL_SAMPLES.length
+export const SAMPLE_COUNT = SAMPLE_SCENES.length

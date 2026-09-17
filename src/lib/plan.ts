@@ -48,13 +48,16 @@ export const PLANS: Record<PlanId, Plan> = {
       maxExportDpi: 150,
       watermark: true,
       maxPhotosPerAlbum: 60,
-      aiPhotoLimit: 24,
+      // Measured: reviewing 60 photos costs about Rs 15. The assistant is not
+      // what this business pays for, so the free tier reviews everything it is
+      // allowed to hold — the paywall is about print quality, not about tokens.
+      aiPhotoLimit: 60,
       printGrade: false,
     },
     perks: [
       'Up to 60 photos in an album',
       'Every template, every layout',
-      'The assistant reviews your first 24 photos',
+      'The assistant reviews every photo you add',
       'Photos are stored compressed — fine on screen, soft in print',
       'Draft PDF at 150 dpi, with a watermark',
     ],

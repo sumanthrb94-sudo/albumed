@@ -349,7 +349,11 @@ with the Anthropic SDK and validates every reply against the same Zod schemas th
   Check its chapter names before you print — especially for regional customs it may not have seen.
 - **Pages, not spreads.** Print shops that want double-page spreads can impose the PDF, or use the
   12″ square lay-flat size.
-- **The sample photos are generated procedurally** so the whole flow can be demonstrated without
-  uploading anything real. They carry deliberately fine detail — radial zari lines, a woven border,
-  small type — so the quality comparison shows something true, but they are drawn shapes, not
-  photographs. The assistant's verdicts on them in the offline demo come from the mock, not Claude.
+- **The 25 sample photos are generated, not taken.** No real family is in them. They cover a Telugu
+  wedding end to end — pellikuthuru through the reception — and are deliberately a *studio take*
+  rather than a portfolio: two near-duplicate pairs of the same moment, and three frames that should
+  be thrown away (motion-blurred, everyone mid-blink, a guest's phone across the lens). Without
+  those, the culling pass has nothing to do and the demo flatters itself. `npm run samples`
+  regenerates the set and writes `public/samples/index.json`, which the app reads at runtime — adding
+  a photograph is a file drop, not a code change. A procedural fallback still draws stand-ins if the
+  files are not deployed.

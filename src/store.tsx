@@ -1,7 +1,14 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import * as db from './lib/db'
 import { uid } from './lib/id'
-import { makeSamplePhoto, prepareUpload, previewCache, releaseThumbUrl, SAMPLE_COUNT } from './lib/images'
+import {
+  makeSamplePhoto,
+  prepareUpload,
+  previewCache,
+  realSampleCount,
+  releaseThumbUrl,
+  SAMPLE_COUNT,
+} from './lib/images'
 import { generatePages, relayoutPage } from './lib/layout'
 import { pageSizeById, themeById, THEMES, PAGE_SIZES } from './lib/themes'
 import type { Album, AlbumOptions, Photo, PhotoSource, PhotoStatus, Project } from './lib/types'
@@ -344,7 +351,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addSamples = useCallback(
     async (source: PhotoSource) => {
       const items: Array<{ blob: Blob; name: string; bytes: number }> = []
-      for (let i = 0; i < SAMPLE_COUNT; i++) {
+      const count = Math.max(await realSampleCount(), SAMPLE_COUNT)
+      for (let i = 0; i < count; i++) {
         const s = await makeSamplePhoto(i)
         items.push({ blob: s.blob, name: s.name, bytes: s.blob.size })
       }
@@ -669,10 +677,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const dropped = next.filter((p) => p.status === 'rejected').length
       setToast(`Reviewed ${verdicts.length} photos — ${kept} kept, ${dropped} left out.`)
       if (skipped > 0) {
-        setPaywall({
-          reason: `${skipped} photo${skipped > 1 ? 's' : ''} were not reviewed`,
-          detail: `${planRef.current.name} reviews ${limit} photos per album. Upgrade and the assistant looks at every one.`,
-        })
+        // Say it, do not seize the screen with a modal mid-flow.
+        setToast(
+          `Reviewed ${verdicts.length} of ${all.length} — ${planRef.current.name} covers ${limit} photos per album.`,
+        )
       }
       return { kept, dropped }
     } catch (err) {
