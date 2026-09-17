@@ -1,12 +1,14 @@
 /* Renders every album template's cover, as the app itself draws them, into one
-   contact sheet: demo-output/templates.png. */
+   contact sheet: demo-output/templates/templates.png. */
 import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
 import { mkdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname)
-const OUT = join(ROOT, 'demo-output')
+// Its own folder: `npm run demo` clears the loose files at the top of
+// demo-output, and this sheet is slow enough to be worth keeping.
+const OUT = join(ROOT, 'demo-output', 'templates')
 const PORT = 4325
 const BASE = `http://localhost:${PORT}`
 
@@ -67,7 +69,7 @@ try {
   await page.waitForTimeout(300)
   const count = await page.locator('.theme-card').count()
   await page.locator('.theme-grid').screenshot({ path: join(OUT, 'templates.png') })
-  console.log(`${count} templates rendered to demo-output/templates.png`)
+  console.log(`${count} templates rendered to demo-output/templates/templates.png`)
 } finally {
   await browser.close()
   server.kill()
