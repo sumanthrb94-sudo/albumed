@@ -143,7 +143,7 @@ export function Upload({ nav }: { nav: (hash: string) => void }) {
             ))}
           </div>
           <button className="btn primary block" style={{ marginTop: 14 }} onClick={() => nav(`#/p/${project.id}/review`)}>
-            Next: review &amp; finalize →
+            Next: pick your photos →
           </button>
         </div>
       )}

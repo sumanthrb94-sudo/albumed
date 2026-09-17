@@ -48,24 +48,49 @@ export function Home({ nav }: { nav: (hash: string) => void }) {
     }
   }
 
+  // When a take is waiting, that is the reason they opened the app. It goes
+  // above the pitch, not below it.
+  const waiting = !studio && app.inbox.length > 0
+
   return (
     <div className="wrap">
+      {waiting && <Inbox nav={nav} />}
+
+      {/* With photos waiting there is exactly one thing to do, so the pitch
+          steps aside and the other routes in become quiet buttons. */}
+      {waiting ? (
+        <div className="row quiet-actions">
+          <button className="btn sm ghost" onClick={() => setOpen((v) => !v)}>
+            + Start an album myself
+          </button>
+          <button className="btn sm ghost" onClick={() => fileRef.current?.click()} disabled={busy}>
+            Import project file
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(e) => onImport(e.target.files?.[0])}
+          />
+        </div>
+      ) : (
       <div className="hero">
         <div className="deva">॥ शुभ आरंभ ॥</div>
         {studio ? (
           <>
             <h2>Send the take to the family</h2>
             <p>
-              Make the event, add the photographs, and send it to their mobile number. They pick the keepers on their
-              own phone, and the album is laid out from what they chose.
+              Make the event. Add the photographs. Send it to their mobile number. They pick on their own phone, and
+              the album is laid out from what they chose.
             </p>
           </>
         ) : (
           <>
             <h2>Turn phone photos into a real album</h2>
             <p>
-              The photos your photographer sent are waiting under your number. Keep the ones you want, drop the rest —
-              and Albumed lays out a print-ready wedding or celebration album from your selection.
+              Your photographer sends the photos to your number. You keep the ones you love. We lay out a print-ready
+              album from what you picked.
             </p>
           </>
         )}
@@ -93,8 +118,7 @@ export function Home({ nav }: { nav: (hash: string) => void }) {
           />
         </div>
       </div>
-
-      {!studio && <Inbox nav={nav} />}
+      )}
 
       {open && (
         <div className="card" style={{ marginTop: 16 }}>
@@ -162,16 +186,20 @@ export function Home({ nav }: { nav: (hash: string) => void }) {
         </div>
       )}
 
-      <h2 style={{ margin: '26px 0 12px' }}>{studio ? 'Your events' : 'Your albums'}</h2>
+      {(app.projects.length > 0 || !waiting) && (
+        <h2 style={{ margin: '26px 0 12px' }}>{studio ? 'Your events' : 'Your albums'}</h2>
+      )}
       {app.projects.length === 0 ? (
-        <div className="card empty">
-          <div className="om">॥ ॐ ॥</div>
-          <p>
-            {studio
-              ? 'No events yet. Make one above, add the take, and send it to the family.'
-              : 'No albums yet. Start one above, or run the demo to see the whole flow end to end.'}
-          </p>
-        </div>
+        waiting ? null : (
+          <div className="card empty">
+            <div className="om">॥ ॐ ॥</div>
+            <p>
+              {studio
+                ? 'No events yet. Make one above, add the take, and send it to the family.'
+                : 'No albums yet. Start one above, or run the demo to see the whole flow end to end.'}
+            </p>
+          </div>
+        )
       ) : (
         <div className="project-list">
           {app.projects.map((p) => (

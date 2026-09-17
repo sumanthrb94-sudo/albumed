@@ -54,8 +54,8 @@ export function QualityCompare({ photo, onSubscribe }: { photo: Photo; onSubscri
         <div className="compare-handle" style={{ left: `${pos}%` }} aria-hidden="true">
           <span>⇹</span>
         </div>
-        <span className="compare-label left">Your original · {source}</span>
-        <span className="compare-label right">Stored here · {stored}</span>
+        <span className="compare-label left">Full quality · {source}</span>
+        <span className="compare-label right">Your free copy · {stored}</span>
       </div>
       <input
         className="compare-range"
@@ -67,8 +67,7 @@ export function QualityCompare({ photo, onSubscribe }: { photo: Photo; onSubscri
         onChange={(e) => setPos(Number(e.target.value))}
       />
       <p className="hint">
-        Both halves are the same patch of the same photo, at the same size. The left is what came off
-        your phone; the right is what this album will print.
+        Same photo. Same patch. Same size. The left is the real file. The right is what this album will print.
       </p>
       {onSubscribe && (
         <button className="btn gold block" onClick={onSubscribe}>
@@ -87,10 +86,9 @@ export function QualityNudge({ onSubscribe }: { onSubscribe: () => void }) {
   if (!photo) return null
   return (
     <div className="card ai-card">
-      <h2>What compression is costing you</h2>
+      <h2>Drag to see what Free costs you</h2>
       <p className="hint">
-        Free albums keep a smaller, more compressed copy of each photo. On a phone screen you will
-        not notice. On a printed page, at arm's length, you will.
+        A free album keeps a smaller copy of each photo. On a phone you will not notice. On a printed page you will.
       </p>
       <QualityCompare photo={photo} onSubscribe={onSubscribe} />
     </div>

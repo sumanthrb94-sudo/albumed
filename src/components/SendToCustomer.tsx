@@ -41,8 +41,7 @@ export function SendToCustomer() {
     <div className="card send-card">
       <h2>Send to the family</h2>
       <p className="hint">
-        They sign in with this number and the photographs are waiting. Add everyone who gets a say — a wedding usually
-        has two or three.
+        They sign in with this number. The photos will be there. Add everyone who gets a say.
       </p>
 
       <div className="recipients" style={{ marginTop: 14 }}>

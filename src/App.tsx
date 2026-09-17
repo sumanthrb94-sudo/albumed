@@ -12,9 +12,9 @@ import { currentSession, signOut, type Session } from './lib/auth'
 
 type Tab = 'upload' | 'review' | 'design' | 'album'
 const TABS: Array<{ id: Tab; label: string }> = [
-  { id: 'upload', label: 'Add photos' },
-  { id: 'review', label: 'Review' },
-  { id: 'design', label: 'Template' },
+  { id: 'upload', label: 'Photos' },
+  { id: 'review', label: 'Pick' },
+  { id: 'design', label: 'Style' },
   { id: 'album', label: 'Album' },
 ]
 
@@ -189,7 +189,7 @@ function Shell({ session, onSignOut }: { session: Session; onSignOut: () => void
                 key={t.id}
                 className={`step${route.tab === t.id ? ' active' : ''}${done ? ' done' : ''}`}
                 disabled={locked}
-                title={locked ? 'Confirm your photo selection first' : undefined}
+                title={locked ? 'Pick your photos first' : undefined}
                 onClick={() => nav(`#/p/${project.id}/${t.id}`)}
               >
                 <span className="n">{done ? '✓' : i + 1}</span>

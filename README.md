@@ -217,7 +217,10 @@ see each other's work, and the studio subscribing does not quietly put the famil
 
 ## The rest of the flow
 
-**Sign in** — an Indian mobile number and a six digit code. **There is no backend behind this**: the
+**Sign in** — the first screen has to do two jobs: let someone in, and tell someone who has never
+seen this what it is. It carries the whole product in three lines — *your studio sends the photos ·
+you keep the ones you love · we make the album* — over six frames from the sample wedding, next to
+the gate itself. An Indian mobile number and a six digit code. **There is no backend behind this**: the
 code is generated in the browser and printed on the sign-in card, under a banner that says so. What
 it does carry is the real shape of the flow — number validation, a five minute expiry, a wrong-code
 path, five attempts, a thirty second resend cooldown, and a session that survives a reload for
@@ -288,6 +291,7 @@ tests/
 scripts/
   demo-e2e.mjs      the browser demo driver
   screenshots.mjs   the entry-to-exit walkthrough capture (28 PNGs)
+  make-thumbs.mjs   small sample thumbnails for the sign-in screen
   fetch-fonts.mjs   re-downloads the self-hosted fonts
   make-icons.mjs    generates the app icons (no image dependencies)
 ```

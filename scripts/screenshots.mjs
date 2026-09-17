@@ -119,7 +119,7 @@ try {
   await shot('The family signs in and the photos are already there', { settle: 1200 })
 
   await page.click('button:has-text("Open and pick your photos")')
-  await page.waitForSelector('text=Review & finalize', { timeout: 120000 })
+  await page.waitForSelector('text=Pick your photos', { timeout: 120000 })
   await page.waitForSelector('.compare', { timeout: 60000 })
   await shot('The studio sent print quality — a free album keeps a smaller copy', { scrollTo: '.compare', settle: 1200 })
 
@@ -128,11 +128,11 @@ try {
   await shot('Review — the assistant, before it has looked')
 
   await page.fill(
-    'input[placeholder="Tamil brahmin muhurtham, then a reception in Chennai"]',
+    'input[placeholder="A Telugu wedding in Rajahmundry, then an evening reception"]',
     'A Godavari-side Telugu wedding — pellikuthuru, muhurtham and a reception',
   )
   await page.selectOption('.ai-card select', 'telugu')
-  await page.click('button:has-text("Review my photos")')
+  await page.click('button:has-text("Let AI pick")')
   await page.waitForSelector('.tile .verdict', { timeout: 180000 })
   await shot('Reviewed — every photo tagged by ceremony and scored', { scrollTo: '.photo-grid', settle: 1500 })
 
@@ -144,7 +144,7 @@ try {
   await shot('One photo — caption, note, and why it was kept', { settle: 1200 })
   await page.click('button:has-text("✕ Close")')
 
-  await page.click('button:has-text("Plan the album")')
+  await page.click('button:has-text("Make the album")')
   await page.waitForSelector('text=Download album PDF', { timeout: 180000 })
   await shot('The album, with the assistant ready to edit it', { settle: 3000 })
 
@@ -156,7 +156,7 @@ try {
   await shot('Edited by asking — template changed, pages re-flowed', { settle: 2500, scrollTo: '.chat' })
 
   // the template gallery — every cover painted with this album's own photograph
-  await page.click('.step:has-text("Template")')
+  await page.click('.step:has-text("Style")')
   await page.waitForSelector('.theme-grid .theme-card canvas')
   await page.setViewportSize({ width: 1100, height: 1000 })
   await page.waitForTimeout(3500)

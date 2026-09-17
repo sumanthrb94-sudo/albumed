@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Albumed — Indian photo album builder. Upload raw phone photos, review & finalize, generate a wedding/celebration album PDF.",
+  "description": "Albumed \u2014 Indian photo album builder. Upload raw phone photos, review & finalize, generate a wedding/celebration album PDF.",
   "scripts": {
     "dev": "concurrently -k -n web,api -c magenta,cyan \"vite\" \"npm:dev:api\"",
     "build": "npm run build:web && npm run build:server",
@@ -19,7 +19,8 @@
     "build:web": "tsc -b && vite build",
     "screenshots": "node scripts/screenshots.mjs",
     "samples": "node --env-file=.env scripts/make-samples.mjs",
-    "templates": "node scripts/template-sheet.mjs"
+    "templates": "node scripts/template-sheet.mjs",
+    "thumbs": "node scripts/make-thumbs.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",

@@ -26,7 +26,7 @@ export function Inbox({ nav }: { nav: (hash: string) => void }) {
 
   return (
     <div className="inbox" data-testid="inbox">
-      <h2>Sent to you</h2>
+      <h2>Your photos are here</h2>
       {app.inbox.map((d) => (
         <div key={d.id} className="card delivery">
           <div className="delivery-head">
@@ -55,13 +55,12 @@ export function Inbox({ nav }: { nav: (hash: string) => void }) {
           {d.message && <p className="delivery-note">“{d.message}”</p>}
 
           <button className="btn primary block" disabled={busy === d.id} onClick={() => open(d.id)}>
-            {busy === d.id ? 'Opening…' : `Open and pick your photos`}
+            {busy === d.id ? 'Opening…' : 'Open and pick your photos'}
           </button>
 
           {d.studioPhone === DEMO_STUDIO.phone && (
             <p className="hint delivery-demo">
-              Demo delivery — nobody really shot this. In use, your photographer sends the take to your number and it
-              appears here.
+              Demo delivery. In use, your photographer sends the photos to your number and they appear here.
             </p>
           )}
         </div>

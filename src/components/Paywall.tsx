@@ -49,8 +49,10 @@ export function Paywall() {
                 {id === 'plus' && <span className="ribbon">Most families pick this</span>}
                 <h3>{p.name}</h3>
                 <div className="price">
-                  {p.priceInr === 0 ? 'Free' : formatInr(p.priceInr)}
-                  <span>{periodLabel(p.period)}</span>
+                  {/* The heading already says "Free"; repeating it as the price
+                      reads like a bug. Say what it costs you instead. */}
+                  {p.priceInr === 0 ? <span className="free">No card needed</span> : formatInr(p.priceInr)}
+                  {p.priceInr > 0 && <span>{periodLabel(p.period)}</span>}
                 </div>
                 <p className="hint">{p.tagline}</p>
                 <ul>

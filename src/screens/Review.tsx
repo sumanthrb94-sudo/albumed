@@ -151,38 +151,25 @@ export function Review({ nav }: { nav: (hash: string) => void }) {
 
   return (
     <div className="wrap">
-      {/* A delivered album never passes through the uploader, so the customer
-          would otherwise never be shown what the free tier keeps. */}
-      <QualityNudge
-        onSubscribe={() =>
-          app.showPaywall({
-            reason: 'Keep these photos at full quality',
-            detail:
-              'Your photographer sent these at print quality. A free album stores a smaller copy — subscribe and this one keeps what was sent.',
-          })
-        }
-      />
-
       <CuratePanel onPlanned={() => nav(`#/p/${project.id}/album`)} />
 
       <div className="card">
-        <h2>Review &amp; finalize</h2>
+        <h2>Pick your photos</h2>
         <p className="hint">
-          Tap a photo to see it big. Keep the ones that belong in the album, leave the rest out. Star the shots that
-          deserve a full page.
+          Tap a photo to see it big. Keep what you love. Star the ones that deserve a full page.
         </p>
         <div className="stat-row">
           <div className="stat">
             <b style={{ color: 'var(--green)' }}>{counts.approved}</b>
-            <span>approved</span>
+            <span>keeping</span>
           </div>
           <div className="stat">
             <b>{counts.pending}</b>
-            <span>still to review</span>
+            <span>to look at</span>
           </div>
           <div className="stat">
             <b style={{ color: 'var(--red)' }}>{counts.rejected}</b>
-            <span>left out</span>
+            <span>dropped</span>
           </div>
         </div>
 
@@ -296,10 +283,23 @@ export function Review({ nav }: { nav: (hash: string) => void }) {
             await app.finalize()
             nav(`#/p/${project.id}/design`)
           }}>
-            Confirm {counts.approved} photos &amp; generate album
+            Make my album — {counts.approved} photos
           </button>
         )}
       </div>
+
+      {/* A delivered album never passes through the uploader, so this is the
+          only place its owner is shown what the free tier keeps. It sits under
+          the photographs: look at them first, then at what they will print like. */}
+      <QualityNudge
+        onSubscribe={() =>
+          app.showPaywall({
+            reason: 'Keep these photos at full quality',
+            detail:
+              'Your photographer sent these at print quality. A free album keeps a smaller copy. Subscribe and this album keeps what was sent.',
+          })
+        }
+      />
 
       {openIdx !== null && app.photos[openIdx] && (
         <Lightbox

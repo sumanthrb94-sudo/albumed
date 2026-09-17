@@ -11,8 +11,8 @@ export function DemoBadge() {
     <div className="demo-badge" role="note">
       <b>Demo mode</b>
       <span>
-        Scripted replies, not live AI — so a presentation works with no key and no network. Set
-        ANTHROPIC_API_KEY on the server for the real assistant.
+        These replies are scripted, not live AI, so the demo works with no key and no network. Add an API key on the
+        server and the real assistant takes over — nothing else changes.
       </span>
     </div>
   )
@@ -84,13 +84,11 @@ export function CuratePanel({ onPlanned }: { onPlanned?: () => void }) {
           <h2>Album assistant</h2>
           <p className="hint">
             {app.ai.enabled
-              ? 'It looks at every photo, sorts them by ceremony, drops the weak frames and writes the captions.'
+              ? 'It looks at every photo. Sorts them by ceremony. Drops the weak ones. Writes the captions.'
               : 'Currently unavailable.'}
           </p>
         </div>
-        {app.ai.enabled && (
-          <span className={`chip ${app.ai.demo ? 'review' : 'finalized'}`}>{app.ai.model}</span>
-        )}
+        {app.ai.enabled && !app.ai.demo && <span className="chip finalized">{app.ai.model}</span>}
       </div>
 
       <DemoBadge />
@@ -102,10 +100,10 @@ export function CuratePanel({ onPlanned }: { onPlanned?: () => void }) {
           <div className="grid2" style={{ marginTop: 12 }}>
             <LanguagePicker />
             <label className="field">
-              <span>What is the occasion? (helps it name things correctly)</span>
+              <span>What is the occasion?</span>
               <input
                 type="text"
-                placeholder="Tamil brahmin muhurtham, then a reception in Chennai"
+                placeholder="A Telugu wedding in Rajahmundry, then an evening reception"
                 value={project.occasionNote}
                 onChange={(e) => app.updateProject({ occasionNote: e.target.value })}
               />
@@ -114,7 +112,7 @@ export function CuratePanel({ onPlanned }: { onPlanned?: () => void }) {
 
           <div className="row">
             <button className="btn primary" disabled={busy || !app.photos.length} onClick={() => app.runCurate()}>
-              {curated ? '↻ Review the photos again' : '✦ Review my photos'}
+              {curated ? '↻ Look again' : '✦ Let AI pick'}
             </button>
             <button
               className="btn gold"
@@ -123,7 +121,7 @@ export function CuratePanel({ onPlanned }: { onPlanned?: () => void }) {
                 if (await app.runStory()) onPlanned?.()
               }}
             >
-              ✦ Plan the album
+              ✦ Make the album
             </button>
             {app.canUndo && (
               <button className="btn ghost" disabled={busy} onClick={() => app.undoAiEdit()}>
@@ -137,8 +135,8 @@ export function CuratePanel({ onPlanned }: { onPlanned?: () => void }) {
           {curated > 0 && (
             <>
               <p className="hint" style={{ marginTop: 10 }}>
-                Reviewed {curated} of {app.photos.length} photos. Every call is a suggestion — change anything you
-                disagree with.
+                Looked at {curated} of {app.photos.length} photos. Every call is a suggestion. Change anything you
+                do not agree with.
               </p>
               <button className="btn sm ghost" onClick={() => setExpanded((v) => !v)}>
                 {expanded ? 'Hide' : 'Show'} what it said
