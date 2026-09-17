@@ -263,7 +263,9 @@ try {
   step('9b', 'Re-import the originals, the way someone would after subscribing')
   // The originals only exist in the phone's gallery, so the demo makes stand-ins
   // at full size with the same file names, and hands them to the real input.
-  const names = ['sample-01-pellikuthuru.jpg', 'sample-02-snathakam.jpg', 'sample-03-kashi yatra.jpg']
+  // These must match the names the app gives its samples, or the matcher will
+  // correctly refuse to pair them up.
+  const names = ['pellikuthuru.jpg', 'jeelakarra-bellam.jpg', 'talambralu.jpg']
   const originals = []
   for (const name of names) {
     const dataUrl = await page.evaluate(async () => {
