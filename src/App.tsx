@@ -7,6 +7,8 @@ import { Design } from './screens/Design'
 import { AlbumView } from './screens/AlbumView'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Paywall } from './components/Paywall'
+import { SignIn, displayPhone } from './screens/SignIn'
+import { currentSession, signOut, type Session } from './lib/auth'
 
 type Tab = 'upload' | 'review' | 'design' | 'album'
 const TABS: Array<{ id: Tab; label: string }> = [
@@ -68,7 +70,47 @@ function InstallButton() {
   )
 }
 
-function Shell() {
+function Account({ session, onSignOut }: { session: Session; onSignOut: () => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="account">
+      <button
+        className="account-chip"
+        data-testid="account-phone"
+        data-phone={displayPhone(session.phone)}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={`Account ${displayPhone(session.phone)}`}
+      >
+        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden focusable="false">
+          <circle cx="8" cy="5" r="3" fill="currentColor" />
+          <path d="M2 15a6 6 0 0 1 12 0Z" fill="currentColor" />
+        </svg>
+        {/* The full number on a laptop, the memorable tail on a phone. */}
+        <b className="full">{displayPhone(session.phone)}</b>
+        <b className="short" aria-hidden>{session.phone.slice(-5)}</b>
+      </button>
+      {open && (
+        <div className="account-menu" role="menu">
+          <p className="hint">Signed in on this device. Your albums live here, not on a server.</p>
+          <button
+            className="btn sm"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              onSignOut()
+            }}
+          >
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Shell({ session, onSignOut }: { session: Session; onSignOut: () => void }) {
   const app = useApp()
   const [route, nav] = useHashRoute()
   const project = app.project
@@ -114,6 +156,7 @@ function Shell() {
         </button>
         {app.ai.demo && <span className="chip review" title="The assistant is returning scripted replies">Demo AI</span>}
         <InstallButton />
+        <Account session={session} onSignOut={onSignOut} />
       </header>
 
       {route.name === 'project' && project && (
@@ -193,11 +236,26 @@ function LockedNotice({ approved, nav, id }: { approved: number; nav: (h: string
 }
 
 export default function App() {
+  // The session gate sits outside the provider: with nobody signed in there is
+  // no reason to open the database at all.
+  const [session, setSession] = useState<Session | null>(() => currentSession())
+
   return (
     <ErrorBoundary>
-      <AppProvider>
-        <Shell />
-      </AppProvider>
+      {session ? (
+        <AppProvider>
+          <Shell
+            session={session}
+            onSignOut={() => {
+              signOut()
+              setSession(null)
+              window.location.hash = ''
+            }}
+          />
+        </AppProvider>
+      ) : (
+        <SignIn onSignedIn={() => setSession(currentSession())} />
+      )}
     </ErrorBoundary>
   )
 }

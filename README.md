@@ -64,15 +64,17 @@ npm run build && npm run demo
 ```
 
 This drives the real product in a real browser against a mock Claude upstream, so it works with no
-API key and no network: create on the free plan → upload → **see the compression comparison** →
-**AI review** → **AI plan** → **three AI edits** → **undo** → **free watermarked draft** → hit the
-paywall → **subscribe** → **re-import originals** → 300 dpi export → reload.
+API key and no network. Entry to exit: **sign in with a phone number and a one-time code** → create
+on the free plan → upload → **see the compression comparison** → **AI review** → **AI plan** →
+**three AI edits** → **undo** → **free watermarked draft** → hit the paywall → **subscribe** →
+**re-import originals** → 300 dpi export → reload → **sign out and sign back in**.
 
-It asserts as it goes: every photo tagged, chapters produced, the template actually changed, press
+It asserts as it goes: a half-typed number is refused, a wrong code is refused and counted, the
+right one gets in, every photo tagged, chapters produced, the template actually changed, press
 resolutions locked on free and unlocked after subscribing, the originals replacing the compressed
 copies, the paid PDF carrying at least 1.5× the data of the free draft, the page count matching the
-preview, and the album surviving a reload. Screenshots, both PDFs and `summary.json` land in
-`demo-output/`.
+preview, the album and the session both surviving a reload, and the albums still there after a sign
+out and sign back in. Screenshots, both PDFs and `summary.json` land in `demo-output/`.
 
 Run the same script against the shipped demo mode with `ALBUMED_DEMO_AI=1 npm run demo` — no mock
 upstream at all, exactly what a deployment with no key serves — or against the real API with
@@ -184,6 +186,14 @@ Gujarati, Punjabi or English**, in their own script, using self-hosted Noto Seri
 
 ## The rest of the flow
 
+**Sign in** — an Indian mobile number and a six digit code. **There is no backend behind this**: the
+code is generated in the browser and printed on the sign-in card, under a banner that says so. What
+it does carry is the real shape of the flow — number validation, a five minute expiry, a wrong-code
+path, five attempts, a thirty second resend cooldown, and a session that survives a reload for
+thirty days. Swapping in a real SMS provider means replacing `issueCode` and `verifyCode` in
+`src/lib/auth.ts` with two server calls; nothing else in the app changes. Signing out clears the
+session, not the albums — they belong to the device.
+
 **Add photos** — gallery picker, camera capture, or drag-and-drop of the folder a photographer
 shared. Each upload is tagged Photographer or Customer. EXIF rotation from phones is baked in on
 import; originals are capped at 3000px with a 640px thumbnail alongside.
@@ -206,6 +216,7 @@ applies the customer's approvals to your full-resolution copy.
 ```
 src/
   lib/
+    auth.ts         phone + one-time code, simulated in the browser  (unit-tested)
     plan.ts         the plans and every limit the product enforces
     reimport.ts     matching re-picked originals to the photos already in an album
     aiContract.ts   Zod schemas shared by browser and server — the AI's output contract
@@ -214,14 +225,14 @@ src/
     layout.ts       19 page templates + the chapter-aware album generator
     render.ts       the canvas painter shared by the preview and the PDF
     motifs.ts       mandala, paisley, marigold, rangoli, kolam, diya, pookalam, kasavu
-    themes.ts       the 16 templates, page sizes, per-language script fonts
+    themes.ts       the 35 album templates, page sizes, per-language script fonts
     db.ts           IndexedDB: projects, photo metadata, blobs, albums
     images.ts       decode + EXIF rotation, thumbnails, bitmap cache, sample photos
     pdf.ts          PDF / JPG export, share sheet
     bundle.ts       project file export, import, decision merge
   components/       PageCanvas, ThemeGallery, Assistant, AlbumChat, Paywall,
                     QualityCompare, ErrorBoundary
-  screens/          Home, Upload, Review, Design, AlbumView
+  screens/          SignIn, Home, Upload, Review, Design, AlbumView
   store.tsx         app state and the three AI passes
 server/
   handlers.ts       the API itself — health, the three AI routes, rate limiting
@@ -233,6 +244,7 @@ api/                the same handlers as Vercel serverless functions
 tests/
   applyOps.test.ts  the edit applier, including malformed model output
   layout.test.ts    template geometry, chapters, featured pages, determinism
+  auth.test.ts      the sign-in flow: expiry, attempt limit, cooldown, sessions
   plan.test.ts      plan limits never regress, and re-import matching
   build.test.ts     the deployed shape: absolute assets, CSP, api/ routes
   api.test.ts       the server end to end against a mock upstream
@@ -343,6 +355,10 @@ with the Anthropic SDK and validates every reply against the same Zod schemas th
 
 ## Limits worth knowing
 
+- **The sign-in is a simulation.** The one-time code is generated in the browser and shown on
+  screen, which is not authentication — it demonstrates the flow. Anyone typing any valid Indian
+  mobile number gets in, and the session only gates this device's own albums, which were never on a
+  server to begin with. A real deployment needs an SMS provider and a server-side session.
 - **Storage is the device.** Clearing site data deletes the albums. Export a project file for
   anything you want to keep. Browsers cap site storage at a few GB, which is the practical reason
   free albums are compressed as well as the commercial one.

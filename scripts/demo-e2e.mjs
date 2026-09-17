@@ -25,6 +25,7 @@ const REAL_AI =
    the same thing a presentation with no API key would use. */
 const DEMO_AI = !REAL_AI && process.env.ALBUMED_DEMO_AI === '1'
 const BASE = `http://localhost:${PORT}`
+const PHONE = '98765 43210'
 
 if (!existsSync(join(ROOT, 'dist', 'index.html')) || !existsSync(join(ROOT, 'dist-server', 'index.mjs'))) {
   console.error('Run `npm run build` first.')
@@ -123,13 +124,56 @@ const chat = async (text) => {
   return reply
 }
 
+/* Signs in the way a person would: type the number, read the code off the
+   screen (there is no SMS behind this demo), type it in. */
+const signIn = async (phone) => {
+  await page.waitForSelector('.signin-card', { timeout: 20000 })
+  await page.fill('input[aria-label="Mobile number"]', phone)
+  await page.click('button:has-text("Send code")')
+  await page.waitForSelector('[data-testid="demo-otp"]')
+  const code = (await page.locator('[data-testid="demo-otp"]').innerText()).trim()
+  if (!/^[1-9]\d{5}$/.test(code)) fail(`the demo code does not look like a 6 digit code: ${code}`)
+  return code
+}
+const enterCode = async (code) => {
+  await page.fill('input[aria-label="One time code"]', code)
+  await page.click('button:has-text("Sign in")')
+}
+
 const summary = {}
 
 try {
-  step(1, 'Open the app')
+  step(1, 'Sign in with a mobile number and a one-time code')
   await page.goto(BASE, { waitUntil: 'networkidle' })
+  await page.waitForSelector('text=Sign in with your mobile number')
+  // A half-typed number cannot be submitted.
+  await page.fill('input[aria-label="Mobile number"]', '98765')
+  if (await page.locator('button:has-text("Send code")').isEnabled()) fail('a 5 digit number was accepted')
+  // Nor can a landline-shaped one.
+  await page.fill('input[aria-label="Mobile number"]', '1234567890')
+  if (await page.locator('button:has-text("Send code")').isEnabled()) fail('a number starting 1 was accepted')
+  await shot('01-signin')
+
+  const code = await signIn(PHONE)
+  console.log(`  \u2713 code issued on screen: ${code}`)
+  await shot('02-signin-code')
+
+  // A wrong code is refused and counted, not waved through.
+  await enterCode(String((Number(code) + 111111) % 1000000).padStart(6, '0'))
+  const otpError = await page.locator('.signin-error').innerText()
+  console.log(`  \u2713 wrong code refused \u2014 \u201c${otpError}\u201d`)
+  if (!/not right/i.test(otpError)) fail(`a wrong code was not refused: ${otpError}`)
+
+  await enterCode(code)
+  await page.waitForSelector('.topbar', { timeout: 15000 })
+  const who = await page.locator('[data-testid="account-phone"]').getAttribute('data-phone')
+  console.log(`  \u2713 signed in as ${who}`)
+  if (!who.includes('98765')) fail(`the account chip shows ${who}`)
+  summary.signedInAs = who
+
+  step(2, 'Open the app')
   await page.waitForSelector('text=Turn phone photos into a real album')
-  await shot('01-home')
+  await shot('03-home')
 
   // A deep URL is served index.html by the rewrite; the assets must still load,
   // which they only do if the build uses absolute paths.
@@ -141,7 +185,7 @@ try {
   console.log('  ✓ deep links load the app with its assets')
   await page.goto(BASE, { waitUntil: 'networkidle' })
 
-  step(2, 'Create a Telugu wedding album (free plan)')
+  step(3, 'Create a Telugu wedding album (free plan)')
   await page.click('text=+ New album')
   await page.fill('input[placeholder="Maa Pelli"]', 'Maa Pelli')
   await page.fill('input[placeholder="Sireesha & Karthik"]', 'Sireesha  ·  Karthik')
@@ -154,7 +198,7 @@ try {
   console.log(`  ✓ starting on the ${planChip} plan`)
   if (planChip !== 'Free') fail('a new visitor should start on Free')
 
-  step(3, 'Add the raw take — free albums store a compressed copy')
+  step(4, 'Add the raw take — free albums store a compressed copy')
   await page.waitForSelector('text=Free albums store a compressed copy')
   await page.click('text=Add sample photos')
   await page.waitForSelector('text=Just added', { timeout: 60000 })
@@ -165,13 +209,13 @@ try {
   if (!/1280|\d+ × \d+/.test(storedLabel)) fail('the stored size was not shown')
   await page.locator('.compare').scrollIntoViewIfNeeded()
   await page.waitForTimeout(400)
-  await shot('02-compression-compare')
+  await shot('04-compression-compare')
 
   await page.click('text=Next: review & finalize →')
   await page.waitForSelector('text=Album assistant')
-  await shot('03-review-before-ai')
+  await shot('05-review-before-ai')
 
-  step(4, 'Assistant reviews every photo (vision pass)')
+  step(5, 'Assistant reviews every photo (vision pass)')
   await page.fill(
     'input[placeholder="Tamil brahmin muhurtham, then a reception in Chennai"]',
     'A Godavari-side Telugu wedding — pellikuthuru, muhurtham and an evening reception',
@@ -186,13 +230,13 @@ try {
   if (tagged < 6) fail(`expected the assistant to tag most photos, got ${tagged}`)
   summary.tagged = tagged
   summary.approvedByAi = approved
-  await shot('04-review-after-ai')
+  await shot('06-review-after-ai')
 
   await page.click('button:has-text("Show what it said")')
   await page.waitForTimeout(500)
-  await shot('05-ai-reasons')
+  await shot('07-ai-reasons')
 
-  step(5, 'Assistant plans the running order and generates the album')
+  step(6, 'Assistant plans the running order and generates the album')
   await page.click('button:has-text("Plan the album")')
   await page.waitForSelector('text=Download album PDF', { timeout: 180000 })
   await page.waitForTimeout(3000)
@@ -207,25 +251,25 @@ try {
   if (chapterPages < 1) fail('the assistant did not produce any chapters')
   summary.pagesAfterPlan = pagesAfterPlan
   summary.chapters = chapterPages
-  await shot('06-album-with-chat')
+  await shot('08-album-with-chat')
 
-  step(6, 'Edit the album by asking for changes')
+  step(7, 'Edit the album by asking for changes')
   const themeBefore = await page.locator('.card .hint').first().innerText()
   await chat('Make it look like a Kerala wedding album')
   const themeAfter = await page.locator('.card .hint').first().innerText()
   console.log(`  ✓ template: ${themeBefore.split('·')[0].trim()} → ${themeAfter.split('·')[0].trim()}`)
   if (themeBefore === themeAfter) fail('asking for a Kerala album did not change the template')
-  await shot('07-chat-theme-changed')
-  await shotPage(0, '08-page-cover-kasavu')
+  await shot('09-chat-theme-changed')
+  await shotPage(0, '10-page-cover-kasavu')
 
   await chat('Give the thaali moment a full page of its own')
   await chat('Fewer photos per page, more white space')
   const pagesAfterEdits = await page.locator('.page-item').count()
   console.log(`  ✓ album re-laid out: ${pagesAfterEdits} pages`)
   summary.pagesAfterEdits = pagesAfterEdits
-  await shot('09-chat-history')
+  await shot('11-chat-history')
 
-  step(7, 'Undo the last change')
+  step(8, 'Undo the last change')
   await page.click('.ai-card button:has-text("Undo")')
   await page.waitForTimeout(2500)
   const pagesAfterUndo = await page.locator('.page-item').count()
@@ -233,7 +277,7 @@ try {
   if (pagesAfterUndo === 0) fail('undo emptied the album')
   summary.pagesAfterUndo = pagesAfterUndo
 
-  step(8, 'Free export is a watermarked draft, capped in resolution')
+  step(9, 'Free export is a watermarked draft, capped in resolution')
   const [freeDownload] = await Promise.all([
     page.waitForEvent('download', { timeout: 240000 }),
     page.click('button:has-text("Download album PDF")'),
@@ -251,9 +295,9 @@ try {
   await page.selectOption('.card select:has(option:has-text("dpi"))', '300').catch(() => {})
   await page.waitForSelector('.paywall', { timeout: 15000 })
   console.log('  ✓ asking for 300 dpi opens the paywall')
-  await shot('10-paywall')
+  await shot('12-paywall')
 
-  step(9, 'Subscribe, and the same album unlocks')
+  step(10, 'Subscribe, and the same album unlocks')
   await page.click('.plan.featured button:has-text("Subscribe")')
   await page.waitForSelector('.paywall', { state: 'detached', timeout: 20000 })
   const paidChip = await page.locator('.plan-chip').innerText()
@@ -263,9 +307,9 @@ try {
   const hasReimport = await page.locator('text=Re-import my originals').count()
   if (!hasReimport) fail('a paid album with compressed photos should offer a re-import')
   console.log('  ✓ the album offers to swap in the original files')
-  await shot('11-after-subscribe')
+  await shot('13-after-subscribe')
 
-  step('9b', 'Re-import the originals, the way someone would after subscribing')
+  step('10b', 'Re-import the originals, the way someone would after subscribing')
   // The originals only exist in the phone's gallery, so the demo makes stand-ins
   // at full size with the same file names, and hands them to the real input.
   // These must match the names the app gives its samples, or the matcher will
@@ -304,24 +348,24 @@ try {
   if (!/3 photos upgraded/.test(upgradeToast)) fail('the originals did not replace the compressed copies')
   await page.waitForTimeout(1500)
 
-  step('9c', 'Now the press resolution is available')
+  step('10c', 'Now the press resolution is available')
   await page.selectOption('.card select:has(option:has-text("dpi"))', '300')
   const chosenDpi = await page.locator('.card select:has(option:has-text("dpi"))').inputValue()
   if (chosenDpi !== '300') fail('300 dpi should be selectable after subscribing')
   console.log('  ✓ export set to 300 dpi')
 
-  step(10, 'Capture the printed pages')
+  step(11, 'Capture the printed pages')
   await page.setViewportSize({ width: 1100, height: 1000 })
   await page.waitForTimeout(2000)
   await page.addStyleTag({ content: '.topbar,.steps{visibility:hidden !important}' })
   const total = await page.locator('.page-item').count()
-  await shotPage(0, '12-page-cover')
-  await shotPage(1, '13-page-chapter')
-  await shotPage(2, '14-page-inside')
-  await shotPage(total - 1, '15-page-closing')
+  await shotPage(0, '14-page-cover')
+  await shotPage(1, '15-page-chapter')
+  await shotPage(2, '16-page-inside')
+  await shotPage(total - 1, '17-page-closing')
   await page.addStyleTag({ content: '.topbar,.steps{visibility:visible !important}' })
 
-  step(11, 'Export the print-ready PDF at 300 dpi')
+  step(12, 'Export the print-ready PDF at 300 dpi')
   await page.evaluate(() => window.scrollTo(0, 0))
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 240000 }),
@@ -343,14 +387,31 @@ try {
   summary.pdfBytes = pdf.length
   summary.plan = paidChip
 
-  step(12, 'Reload to prove everything survives a restart')
+  step(13, 'Reload to prove everything survives a restart')
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForTimeout(3000)
   const persisted = await page.locator('.page-item').count()
   console.log(`  ✓ after reload: ${persisted} pages`)
   if (persisted !== total) fail(`album did not persist: ${persisted} pages after reload, ${total} before`)
   summary.persistedPages = persisted
-  await shot('16-after-reload')
+  if ((await page.locator('[data-testid="account-phone"]').count()) !== 1) fail('the reload signed the user out')
+  console.log('  ✓ still signed in after the reload')
+  await shot('18-after-reload')
+
+  step(14, 'Sign out, and sign back in — the albums are on the device, not the session')
+  await page.locator('.account-chip').click()
+  await page.click('.account-menu button:has-text("Sign out")')
+  await page.waitForSelector('text=Sign in with your mobile number', { timeout: 15000 })
+  if ((await page.locator('.topbar').count()) !== 0) fail('signing out left the app on screen')
+  console.log('  ✓ signed out — the app is behind the gate again')
+  await shot('19-signed-out')
+
+  const code2 = await signIn(PHONE)
+  await enterCode(code2)
+  await page.waitForSelector('.topbar', { timeout: 15000 })
+  await page.waitForSelector('text=Maa Pelli', { timeout: 20000 })
+  console.log('  ✓ signed back in, and the album is still there')
+  await shot('20-signed-back-in')
 
   await writeFile(join(OUT, 'summary.json'), JSON.stringify({ ai: health, ...summary }, null, 2))
   console.log('\n✅ End-to-end demo passed. Output in demo-output/')

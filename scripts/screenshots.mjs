@@ -57,8 +57,18 @@ try {
   console.log('\nEntry → exit walkthrough (demo mode, no API key)\n')
 
   await page.goto(BASE, { waitUntil: 'networkidle' })
+  await page.waitForSelector('text=Sign in with your mobile number')
+  await page.fill('input[aria-label="Mobile number"]', '98765 43210')
+  await shot('Entry — sign in with a mobile number')
+
+  await page.click('button:has-text("Send code")')
+  await page.waitForSelector('[data-testid="demo-otp"]')
+  await shot('The one-time code — shown on screen, because no SMS is sent')
+
+  await page.fill('input[aria-label="One time code"]', (await page.locator('[data-testid="demo-otp"]').innerText()).trim())
+  await page.click('button:has-text("Sign in")')
   await page.waitForSelector('text=Turn phone photos into a real album')
-  await shot('Entry — the home screen, free plan')
+  await shot('The home screen, free plan')
 
   await page.click('text=+ New album')
   await page.fill('input[placeholder="Maa Pelli"]', 'Maa Pelli')
@@ -138,7 +148,13 @@ try {
 
   await page.click('.brand')
   await page.waitForSelector('text=Your albums')
-  await shot('Exit — the album saved on the device', { settle: 1200 })
+  await shot('The album saved on the device', { settle: 1200 })
+
+  await page.locator('.account-chip').click()
+  await shot('The account — signed in on this device', { settle: 400 })
+  await page.click('.account-menu button:has-text("Sign out")')
+  await page.waitForSelector('text=Sign in with your mobile number')
+  await shot('Exit — signed out, back at the gate', { settle: 600 })
 
   await writeFile(join(OUT, 'index.json'), JSON.stringify(index, null, 2))
   console.log(`\n${n} screenshots in demo-output/walkthrough/\n`)

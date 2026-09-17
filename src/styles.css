@@ -91,6 +91,9 @@ a { color: var(--maroon); }
 .chip.collecting { color: #8a6d3b; }
 .chip.review { color: var(--maroon); }
 .chip.finalized { color: var(--green); }
+/* On the maroon bar those inks disappear — lift them off it. */
+.topbar .chip { color: #f3d9b0; border-color: rgba(255, 255, 255, 0.4); }
+.topbar .chip.finalized { color: #a9e3c4; }
 
 /* ---------- layout ---------- */
 
@@ -539,3 +542,93 @@ textarea { min-height: 70px; resize: vertical; }
   color: var(--ink-soft);
 }
 .demo-badge b { color: var(--maroon); font-size: 14px; }
+
+/* ---------- sign in ---------- */
+
+.signin {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: linear-gradient(150deg, #7a1220, #3d060f 60%, #24040a);
+}
+.signin-card {
+  width: min(420px, 100%);
+  background: var(--card);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  padding: 30px 26px;
+  text-align: center;
+}
+.signin-card img { border-radius: 14px; }
+.signin-card .deva { font-family: var(--deva); color: var(--gold); font-size: 14px; margin-top: 10px; }
+.signin-card h1 { font-size: 30px; margin: 2px 0 6px; }
+.signin-card form { margin-top: 18px; text-align: left; }
+.signin-card .field span { font-weight: 600; }
+
+.phone-row { display: flex; align-items: stretch; gap: 8px; }
+.phone-row .cc {
+  display: grid; place-items: center;
+  padding: 0 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--paper-2); color: var(--ink-soft);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
+.otp {
+  text-align: center;
+  font-size: 30px;
+  letter-spacing: 0.44em;
+  text-indent: 0.44em;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--display);
+}
+
+.signin-error {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--red);
+}
+
+.otp-demo {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline;
+  margin-top: 18px; padding: 10px 14px;
+  border: 1px dashed var(--maroon); border-radius: 10px;
+  background: color-mix(in srgb, var(--maroon) 7%, transparent);
+  font-size: 13px; color: var(--ink-soft); text-align: left;
+}
+.otp-demo b { color: var(--maroon); }
+.otp-demo code {
+  font-size: 17px; font-weight: 700; letter-spacing: 0.12em;
+  color: var(--ink); background: var(--paper-2);
+  padding: 1px 8px; border-radius: 6px;
+}
+
+.signin-foot { margin-top: 18px; font-size: 12.5px; }
+
+.account { position: relative; }
+.account-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.34);
+  background: rgba(255,255,255,.08); color: #f7e6c4;
+  font-size: 12.5px; cursor: pointer; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.account-chip:hover { background: rgba(255,255,255,.16); }
+.account-chip .short { display: none; }
+.account-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 40;
+  width: 250px; padding: 12px;
+  background: var(--paper); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 18px 44px rgba(0,0,0,.28);
+  text-align: left;
+}
+.account-menu .hint { margin: 0 0 10px; }
+.account-menu .btn { width: 100%; }
+
+@media (max-width: 560px) {
+  .account-chip .full { display: none; }
+  .account-chip .short { display: inline; }
+}
