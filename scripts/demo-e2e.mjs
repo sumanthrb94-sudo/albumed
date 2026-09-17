@@ -8,7 +8,7 @@
    instead of the mock; everything else is identical. */
 import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
-import { readFile, mkdir, writeFile, rm } from 'node:fs/promises'
+import { readFile, readdir, mkdir, writeFile, rm } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { startMockAnthropic } from '../tests/mock-anthropic.mjs'
@@ -37,8 +37,13 @@ const fail = (msg) => {
   throw new Error(msg)
 }
 
-await rm(OUT, { recursive: true, force: true })
+// Clear this run's own output, but leave subdirectories alone: the walkthrough
+// capture writes into demo-output/walkthrough, and wiping the lot meant
+// whichever script ran second deleted the other one's work.
 await mkdir(OUT, { recursive: true })
+for (const entry of await readdir(OUT, { withFileTypes: true })) {
+  if (entry.isFile()) await rm(join(OUT, entry.name), { force: true })
+}
 
 const mock = REAL_AI || DEMO_AI ? null : await startMockAnthropic(MOCK_PORT)
 console.log(
