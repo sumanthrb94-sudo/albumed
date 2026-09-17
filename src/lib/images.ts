@@ -228,6 +228,13 @@ const REAL_SAMPLES: RealSample[] = [
   { file: 'samples/01-pellikuthuru.jpg', label: 'Pellikuthuru' },
   { file: 'samples/02-jeelakarra-bellam.jpg', label: 'Jeelakarra Bellam' },
   { file: 'samples/03-talambralu.jpg', label: 'Talambralu' },
+  { file: 'samples/04-snathakam.jpg', label: 'Snathakam' },
+  { file: 'samples/05-kashi-yatra.jpg', label: 'Kashi Yatra' },
+  { file: 'samples/06-kanyadanam.jpg', label: 'Kanyadanam' },
+  { file: 'samples/07-appaginthalu.jpg', label: 'Appaginthalu' },
+  { file: 'samples/08-family-portrait.jpg', label: 'Family Portrait' },
+  { file: 'samples/09-mandapam.jpg', label: 'Mandapam' },
+  { file: 'samples/10-reception.jpg', label: 'Reception' },
 ]
 
 async function loadRealSample(i: number): Promise<{ blob: Blob; name: string } | null> {
@@ -246,8 +253,9 @@ async function loadRealSample(i: number): Promise<{ blob: Blob; name: string } |
 
 /* ---------- procedural sample photos ---------- */
 
+/* Only reached when a sample photo cannot be fetched — offline, or a build
+   that did not ship public/samples. */
 const SAMPLE_SCENES: Array<{ label: string; hues: [number, number]; portrait: boolean }> = [
-  // Indices 0-2 are covered by the real photographs above; these continue the day.
   { label: 'Snathakam', hues: [95, 140], portrait: true },
   { label: 'Kashi Yatra', hues: [22, 42], portrait: false },
   { label: 'Madhuparkam', hues: [340, 15], portrait: true },
@@ -354,5 +362,5 @@ async function drawSamplePhoto(index: number): Promise<{ blob: Blob; name: strin
   return { blob, name: `sample-${String(index + 1).padStart(2, '0')}-${scene.label.toLowerCase()}.jpg` }
 }
 
-export const SAMPLE_COUNT = SAMPLE_SCENES.length
+export const SAMPLE_COUNT = Math.max(SAMPLE_SCENES.length, REAL_SAMPLES.length)
 export const REAL_SAMPLE_COUNT = REAL_SAMPLES.length

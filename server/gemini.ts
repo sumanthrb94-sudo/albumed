@@ -19,7 +19,7 @@ import {
 import { curateSystem, editSystem, storySystem } from './prompts.js'
 import { AiError } from './claude.js'
 
-export const GEMINI_MODEL = process.env.ALBUMED_GEMINI_MODEL ?? 'gemini-2.5-flash'
+export const GEMINI_MODEL = process.env.ALBUMED_GEMINI_MODEL ?? 'gemini-3.8-flash'
 
 export const geminiConfigured = (): boolean => Boolean(process.env.GEMINI_API_KEY)
 

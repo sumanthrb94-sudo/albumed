@@ -4,7 +4,7 @@
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/sumanthrb94-sudo/albumed&project-name=albumed&repository-name=albumed&env=ANTHROPIC_API_KEY&envDescription=Optional.%20Without%20it%20the%20assistant%20runs%20in%20demo%20mode%20with%20scripted%20replies.&envLink=https%3A%2F%2Fconsole.anthropic.com%2Fsettings%2Fkeys)
 
-One click deploys your own copy. `ANTHROPIC_API_KEY` is optional — leave it blank and the assistant
+One click deploys your own copy. `GEMINI_API_KEY` is optional — leave it blank and the assistant
 runs in demo mode with scripted replies, clearly labelled, so the deployment demos with no key at
 all. Nothing else needs configuring; `vercel.json` is in the repo.
 
@@ -38,7 +38,7 @@ compression took (see *Plans* below).
 
 ```bash
 npm install
-cp .env.example .env          # add ANTHROPIC_API_KEY to switch the assistant on
+cp .env.example .env          # add GEMINI_API_KEY to switch the assistant on
 npm run build
 npm start                     # http://localhost:8787
 ```

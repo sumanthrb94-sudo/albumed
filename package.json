@@ -17,7 +17,8 @@
     "start": "node dist-server/index.mjs",
     "test": "node --import tsx --test tests/*.test.ts",
     "build:web": "tsc -b && vite build",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "samples": "node --env-file=.env scripts/make-samples.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",
