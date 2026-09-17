@@ -1,5 +1,13 @@
 # Albumed
 
+**Live demo: https://albumed-sumanthrb94-3803s-projects.vercel.app**
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/sumanthrb94-sudo/albumed&project-name=albumed&repository-name=albumed&env=ANTHROPIC_API_KEY&envDescription=Optional.%20Without%20it%20the%20assistant%20runs%20in%20demo%20mode%20with%20scripted%20replies.&envLink=https%3A%2F%2Fconsole.anthropic.com%2Fsettings%2Fkeys)
+
+One click deploys your own copy. `ANTHROPIC_API_KEY` is optional — leave it blank and the assistant
+runs in demo mode with scripted replies, clearly labelled, so the deployment demos with no key at
+all. Nothing else needs configuring; `vercel.json` is in the repo.
+
 **An AI album editor for Indian weddings.** Built in Rajahmundry, on the Godavari — Telugu weddings
 are home ground, and the templates and ceremony vocabulary reach across the country.
 
@@ -247,6 +255,8 @@ gives a different album and the same seed always reproduces the same one.
 The API is written once, in `server/handlers.ts`, and served two ways.
 
 ### Vercel
+
+Use the Deploy button at the top of this file, or from a clone:
 
 ```bash
 npx vercel            # preview
