@@ -294,12 +294,33 @@ wired to the container health check.
 
 Configuration is all environment variables — see `.env.example`.
 
-### Cost
+### What it costs to run
 
-The review pass sends one 512px thumbnail per photo, batched (six per request by default, via
-`ALBUMED_CURATE_BATCH`). Planning and editing are text-only. A 200-photo shoot is roughly 34 review
-requests; the system prompt is cached across them. Lower `ALBUMED_MODEL` to `claude-sonnet-5` if you
-want to trade some judgement for cost.
+Measured from real `gemini-3.8-flash` calls in September 2026, at $0.75/$3.75 per million input and
+output tokens and ₹96.07 to the dollar. Thinking tokens bill as output and are included — they were
+about 60% of output on the vision pass, which is worth knowing before tuning anything else.
+
+| | Measured |
+| --- | --- |
+| Review, 6 photos (one batch) | ₹1.44 |
+| Plan the album | ₹0.46 |
+| One edit-chat message | ₹0.58 |
+| **30-photo album**, reviewed + planned + 5 edits | **₹10.56** |
+| **200-photo album** (a real wedding take) | **₹52.45** |
+| **600-photo album** | **₹147.77** |
+
+Against a ₹999 PDF download or a ₹15,300 printed album, **the assistant is not the cost of this
+business** — it is well under 1% of revenue even on a 600-photo shoot. The limits in
+`src/lib/plan.ts` exist to stop abuse, not to control model spend, and should be set with that in
+mind.
+
+**Image generation is the exception, by two orders of magnitude.** `gemini-3.1-flash-image` is
+about ₹6.44 per 1K image, so generating an edited version of every photo in a 200-photo album would
+cost ₹1,288 — more than the PDF sells for. Anything that generates images per customer photo has to
+be priced as its own line item, not folded into a subscription.
+
+Note the token rates are promotional until 31 December 2026 and double after that; these figures
+double with them. `npm run samples` regenerates the sample set and cost ₹45 for seven images.
 
 ---
 
